@@ -49,6 +49,11 @@ module modtrack
 
   contains
 
+  !> Given the input `cell` create a new `celltype` instance with the same
+  !`head` and `next`, with `previous` pointing to the current cell and set
+  !`next` of the current `cell` to the new `celltype` instance.
+  !
+  !@ returns (through reassignment) a pointer to the new `celltype` instance
   subroutine createcell(cell)
     type(celltype), pointer, intent(inout) :: cell
     type(celltype), pointer       :: tmp
@@ -75,6 +80,12 @@ module modtrack
     cell%cloudtype = -1
   end subroutine createcell
 
+  !> Given `cell` remove all it and all associated allocated "splitters",
+  !> "parents", "children"
+  !
+  !! The `next`, `previous` linked-list pointers are re-assigned so that a new
+  !! contigous link-list is created, and a pointer into that list (either the
+  !! "next" or "previous" element) is re-assigned to the `cell` argument
   subroutine deletecell(cell)
     type(celltype), pointer, intent(inout) :: cell
     type(celltype), pointer       :: tmp
@@ -94,6 +105,8 @@ module modtrack
     end if
   end subroutine deletecell
 
+  !> Through using `deletecell` de-allocate all cells (and associated "parents",
+  !> etc) in the `next`, `previous` linked-list that the argument `cell` exists in
   subroutine delete_all(cell)
     type(celltype), pointer, intent(inout) :: cell
     integer :: iret
@@ -106,6 +119,9 @@ module modtrack
     end do
   end subroutine delete_all
 
+  !> Assign the `cell` argument to the "next" `celltype` attribute of the supplied cell if the
+  !> supplied cell is pointing to something
+  !! @returns 0: `cell` is associated, -1: otherwise
   integer function nextcell(cell)
     type(celltype), pointer, intent(inout) :: cell
 
@@ -117,6 +133,9 @@ module modtrack
 
   end function nextcell
 
+  !> Assign the `cell` argument to the "head" `celltype` attribute of the supplied cell if the
+  !supplied cell is pointing to something
+  !@ return 0: `cell` is associated, -1: otherwise
   integer function firstcell(cell)
     type(celltype), pointer, intent(inout) :: cell
     firstcell = -1
@@ -137,6 +156,9 @@ module modtrack
     integer, allocatable, dimension(:)     :: nr, maxiter
     integer :: i, j, t, n, nnn, ii, jj, tt, currid, tmin, tmax, iter, maxpassive=0
     integer :: nn, nlist, nnewlist, nendlist, npassive, totnewcells, nractive
+    ! list has shape (4, cell%nelements) and stores (i,j,t,n) where i,j and the
+    ! position indecies, t the time index and n the number of splitters for this
+    ! element of the cell
 
     oldcell => cell
     if(cell%nelements> 10000000) write (*,*) 'Begin Splitcell'
@@ -293,6 +315,10 @@ module modtrack
 
     end if
   contains
+    !> Find the parent cell for each element in the current cell and update
+    !> `splitters` and `children` in each. Also creates a number of each
+    !> parent cell which assigned to the last row of `list`. `nr` appears to
+    !> count the number of "child" elements that are split by each cell.
     subroutine findnrsplitters
       do nn = 1, cell%nelements
   !      write(*,*) 'Find splitter for element',nn,'/',cell%nelements
@@ -300,23 +326,30 @@ module modtrack
         i = cellloc(1,nn)
         j = cellloc(2,nn)
         t = cellloc(3,nn)
+        ! Is there a parent cell associated with this datapoint?
         if (associated(parentarr(i,j,t)%p)) then
           lnewparent = .true.
+          ! Check if we've seen this cell before, i.e. has it be put into
+          ! "cell.splitters" already?
           do n = 1, cell%nsplitters
             if (associated(cell%splitters(n)%p,parentarr(i,j,t)%p)) then
               lnewparent = .false.
               exit
             end if
           end do
+          ! if it's new cell
           if (lnewparent) then
+            ! add the parent to this cell's "splitters"
             cell%nsplitters = cell%nsplitters + 1
-            n = cell%nsplitters
             call increase_array(cell%splitters, cell%nsplitters)
             cell%splitters(cell%nsplitters)%p => parentarr(i,j,t)%p
 
+            ! and the current cell to "children" of the parent cell
             parentarr(i,j,t)%p%nchildren = parentarr(i,j,t)%p%nchildren + 1
             call increase_array(parentarr(i,j,t)%p%children, parentarr(i,j,t)%p%nchildren)
             parentarr(i,j,t)%p%children(parentarr(i,j,t)%p%nchildren)%p => cell
+
+            n = cell%nsplitters
           end if
           nlist = nlist + 1
           bool(i,j,t) = n
@@ -537,6 +570,18 @@ module modtrack
 
   end subroutine findparents
 
+  !> Copy the information from the temporary array `cellloc` into the `cell`
+  !> instance's `loc` (location) and `value` attributes.
+  !!
+  !! - `cellloc` constains all the positions in space of time of datapoints which
+  !! are part of the current cell
+  !! - copy into `cell.loc` the location in space of time of each element
+  !! - set in `cell.value` the scalar values of each element (which a defined in
+  !! both space and time) wrt cloud-top, cloud-base and "ivalue" ??
+  !! - bool is set to `-1` for all datapoints for the elements in the current
+  !! cell
+  !!
+  !! @TODO what does `ivalue` mean here?
   subroutine finalizecell(cell, ncells, parentarr)
     type(celltype), pointer, intent(inout)                   :: cell
     integer, intent(out)                             :: ncells
@@ -560,6 +605,8 @@ module modtrack
     cell%id = ncells
   end subroutine finalizecell
 
+  !> Increase an array of reals by allocating a new array of size `newsize` and copy the old array to the beginning of the new if
+  !> the old one was allocated
   subroutine increase_array_r(array, newsize)
     real,    dimension(:,:), allocatable, intent(inout) :: array
     integer, dimension(:), intent(in)      :: newsize
@@ -573,6 +620,8 @@ module modtrack
 
   end subroutine increase_array_r
 
+  !> Increase an array of integers by allocating a new array of size `newsize` and copy the old array to the beginning of the new if
+  !> the old one was allocated
   subroutine increase_array_i(array, newsize)
     integer, dimension(:,:),  allocatable, intent(inout) :: array
     integer, dimension(:), intent(in)      :: newsize
@@ -586,6 +635,8 @@ module modtrack
 
   end subroutine increase_array_i
 
+  !> Increase an array of the `cellptr` datatype by allocating a new array of size `newsize` and copy the old array to the beginning of the new if
+  !> the old one was allocated
   subroutine increase_array_p(array, newsize)
     type(cellptr), dimension(:),  allocatable, intent(inout) :: array
     integer, intent(in)                        :: newsize
@@ -599,6 +650,16 @@ module modtrack
 
   end subroutine increase_array_p
 
+  !> Given the current location (i,j,t) in space and time look at neighbouring
+  !> points in space and time and if they satisfy the constraints from being part of
+  !> the same cell:
+  !!
+  !! set bool=-2 so that this data-point is not considered twice for multiple
+  !! cells, store the position in space and time into the `cellloc` array and
+  !! increment the `nelements` counter on the provided cell
+  !!
+  !! TODO: Looking west/east/north/south and truncating the indexing near the
+  !! edge is unnecessarily costly, the current element will be checked twice
   recursive subroutine newelement(i, j, t, cell)
     integer, intent(in)                                      :: i, j, t
     type(celltype),pointer, intent(inout)                    :: cell
@@ -679,6 +740,8 @@ module modtrack
     end if
   end subroutine newelement
 
+  !> Iterate over all data-points in space and time and construct `celltype`
+  !> instances (stored in a linked list through the `next`/`previous` attributes) 
   subroutine dotracking(cell, ncells, nmincells, parentarr)
     type(celltype), pointer, intent(inout)                   :: cell
     integer, intent(out)                             :: ncells
@@ -713,6 +776,16 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
     deallocate(cellloc)
   end subroutine dotracking
 
+  !> Create a mapping from all datapoints in space and time to the cell
+  !  associated with that datapoint for all cells where the minimum "cloud-base"
+  !  value is less than minimum base height provided (this is actually and array
+  !  that spans all timesteps, but only the first time-step index of first
+  !  element in the cell is used).
+  !
+  ! Also optionally store the "cloud-base" and "cloud-top" value into `base` and
+  ! `top` arrays
+  !
+  ! @TODO Does this subroutine actually read from `parentarr`?
   subroutine fillparentarr(cell, minbase, parentarr, base, top)
     use modnetcdf, only : fillvalue_i16
     type(celltype), pointer, intent(inout)         :: cell
@@ -752,6 +825,16 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
   end subroutine fillparentarr
 
 
+  !> Check if successive timesteps appear to strange number of `bool==0`
+  !> data-points
+  !!
+  !! Strange defined as either:
+  !! - number of cells with bool==0 was above 100 in previous step and is 0 in current 
+  !! - succesive timesteps has less than 25% of bool==0 than previous timestep
+  !
+  !! There's something strange whereby bool is actually changed if either of the
+  !! above is true, I think this is to always relate to the last timestep that
+  !! was deemed to be good for comparison, maybe...
   subroutine checkframes
     integer :: t, count1, count2
     real    :: hlp
