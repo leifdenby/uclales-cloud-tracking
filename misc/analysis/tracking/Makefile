@@ -6,12 +6,11 @@ FFLAGS=$(shell $(NF_CONFIG) --fflags --flibs --cflags)
 FC=$(shell $(NF_CONFIG) --fc)
 NETCDF_INCDIR=$(shell $(NF_CONFIG) --prefix)/include
 
-SOURCES=$(wildcard *.f90)
-PROGRAMS=$(patsubst %.f90, %, $(SOURCES))
 
+all: cloud_tracking
 
-all: $(PROGRAMS)
-	echo $(PROGRAMS)
+modnetcdf: modnetcdf.f90
+	$(FC) $(FFLAGS) -c $(addsuffix .f90,$@)
 
-$(PROGRAMS): $(SOURCES)
-	$(FC) $(addsuffix .f90,$@) -o bin/$@ $(FFLAGS)
+cloud_tracking: cloud_tracking.f90 modnetcdf
+	$(FC) $(addsuffix .f90,$@) $(FFLAGS) modnetcdf.o -o bin/$@
