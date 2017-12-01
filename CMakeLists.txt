@@ -3,7 +3,7 @@ project (uclales-cloud-tracking Fortran)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
-set (NETCDF_NC4 "YES")
+set (NETCDF_F90 "YES")
 FIND_PACKAGE(NetCDF)
 
 add_executable(main
