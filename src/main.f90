@@ -123,11 +123,11 @@ program tracking
   minparentel = 100!nint(50./(dx*dy*dt))
   if (lthermal) then
     write (*,*) 'Thermals....'
-    call read_named_input(ivar(ithermal), ithermal)
+    call read_named_input(var(:,:,:,ithermal), ivar(ithermal))
     ivar(1)%name  = 'trcbase'
     ivar(2)%name  = 'trctop'
     do n = 1,2
-    call read_named_input(ivar(n), n)
+    call read_named_input(var(:,:,:,n), ivar(n))
     end do
 
     allocate(minbasetherm(tstart:nt))
@@ -144,9 +144,9 @@ program tracking
   if (lcore .or. lcloud) then
     ! load lwp + rwp => var(:,:,:,ivalue), rescaling by lwpzero and lwprange
     if (.not. lrwp) then
-      call read_named_input(ivar(ilwp), ilwp)
+      call read_named_input(var(:,:,:,ilwp), ivar(ilwp))
     else
-      call read_named_input(ivar(ilwp), ilwp, ivar(irain))
+      call read_named_input(var(:,:,:,ilwp), ivar(ilwp), ivar(irain))
     endif
 
     ! load cldbase => var(:,:,:,ibase)
@@ -154,14 +154,14 @@ program tracking
     ivar(1)%name  = 'cldbase'
     ivar(2)%name  = 'cldtop'
     do n = 1,2
-    call read_named_input(ivar(n), n)
+    call read_named_input(var(:,:,:,n), ivar(n))
     end do
 
     if (lcore) then
       write (*,*) 'Cores....'
       ivalue = 4
 
-      call read_named_input(ivar(icore), ivalue)
+      call read_named_input(var(:,:,:,ivalue), ivar(icore))
 
       bool = -1
       allocate(minbasecloud(tstart:nt))
@@ -210,12 +210,12 @@ program tracking
 
   if (lrain) then
     write (*,*) 'Rain....'
-    call read_named_input(ivar(irain), irain)
+    call read_named_input(var(:,:,:,irain), ivar(irain))
 
     ivar(1)%name  = 'rwpbase'
     ivar(2)%name  = 'rwptop'
     do n = 1,2
-      call read_named_input(ivar(n), n)
+      call read_named_input(var(:,:,:,n), ivar(n))
     end do
 
     !Loop over rain patches

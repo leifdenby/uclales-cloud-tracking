@@ -1,6 +1,6 @@
 module field_loader
   use modnetcdf, only: netcdfvar, check, inquire_ncvar, read_ncvar
-  use tracking_common, only: tstart, nt, nx, ny, var
+  use tracking_common, only: tstart, nt, nx, ny
   use tracking_common, only: simulation_id
   use constants, only: nchunk
 
@@ -47,10 +47,11 @@ contains
     endif
   end subroutine lookup_scaling_values
 
-  subroutine read_named_input(nc_var, var_index, nc_var2)
+  !> Read field with name `nc_var%name` and rescale the field
+  subroutine read_named_input(output, nc_var, nc_var2)
     use modnetcdf, only: fillvalue_i16
 
-    integer, intent(in) :: var_index
+    integer(kind=2), dimension(:,:,:), intent(out) :: output
     type(netcdfvar), intent(in) :: nc_var
     type(netcdfvar), intent(in), optional :: nc_var2
 
@@ -92,9 +93,9 @@ contains
         do j = 1, ny
           do i = 1, nx
             if (readfield(i,j,kk) >= min_value) then
-              var(i,j,k+kk-1,var_index) = (readfield(i,j,kk) - value_offset ) / value_scaling
+              output(i,j,k+kk-1) = (readfield(i,j,kk) - value_offset ) / value_scaling
             else
-              var(i,j,k+kk-1,var_index) = fillvalue_i16
+              output(i,j,k+kk-1) = fillvalue_i16
             end if
           end do
         end do
