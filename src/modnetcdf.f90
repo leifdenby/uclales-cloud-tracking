@@ -1,5 +1,12 @@
 module modnetcdf
-  use netcdf
+  use netcdf, only: nf90_int64
+  use netcdf, only: nf90_float, nf90_int
+  use netcdf, only: nf90_inq_varid, nf90_enddef, nf90_def_dim
+  use netcdf, only: nf90_put_var, nf90_get_var, nf90_inquire_dimension
+  use netcdf, only: nf90_inquire_variable, nf90_get_att, nf90_redef
+  use netcdf, only: nf90_put_att, nf90_strerror, nf90_def_var
+  use netcdf, only: nf90_noerr, nf90_enameinuse
+
   implicit none
   real(kind=4),    parameter :: fillvalue_r = -1e9
   integer, parameter :: fillvalue_i = -1000000000
@@ -31,6 +38,8 @@ module modnetcdf
     module procedure read_ncvar_2D
     module procedure read_ncvar_3D
   end interface read_ncvar
+
+  public inquire_ncvar, define_ncdim
 contains
 
   subroutine inquire_ncvar(fid, ncvar)
@@ -223,8 +232,10 @@ contains
     integer         :: fid, iret, xtype
     !..open file and read data
     call check ( nf90_redef(fid))
+    !iret =  nf90_def_var(fid, name = trim(ncvar%name),xtype=xtype, dimids = ncvar%dimids, &
+                         !varid = ncvar%id, deflate_level = deflate_level)
     iret =  nf90_def_var(fid, name = trim(ncvar%name),xtype=xtype, dimids = ncvar%dimids, &
-                         varid = ncvar%id, deflate_level = deflate_level)
+                         varid = ncvar%id)
     if (iret == nf90_enameinuse) then
       call check ( nf90_inq_varid(fid,trim(ncvar%name),ncvar%id) )
     else
