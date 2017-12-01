@@ -2,14 +2,11 @@ module modtrack
   use tracking_common, only: celltype, cellptr
 
   use tracking_common, only: dt, dx, dy
-  use tracking_common, only: ibase, itop, ivalue
+  use tracking_common, only: ibase, itop
   use tracking_common, only: nrel_max, nt, nx, ny
   use tracking_common, only: tstart
   use tracking_common, only: minparentel
   use tracking_common, only: cbstep
-
-  use tracking_common, only: bool
-  use tracking_common, only: var
 
   use modarray, only: increase_array
 
@@ -125,16 +122,23 @@ module modtrack
     end if
   end function firstcell
 
-  subroutine splitcell(cell, ncells, parentarr)
+  subroutine splitcell(cell, ncells, parentarr, obj_mask, var_base, var_top, var_value)
     type(celltype), pointer, intent(inout)   :: cell
     integer, intent(inout)           :: ncells
     type(cellptr), allocatable, dimension(:,:,:), intent(inout) :: parentarr
+    integer(kind=4), dimension(:,:,:), intent(inout) :: obj_mask
+
+    integer(kind=2), dimension(:,:,:), intent(in) :: var_base
+    integer(kind=2), dimension(:,:,:), intent(in) :: var_top
+    integer(kind=2), dimension(:,:,:), intent(in) :: var_value
+
+
     type(celltype), pointer                  :: oldcell
     type(cellptr), allocatable, dimension(:) :: newcells
     logical :: lnewparent
     integer, allocatable, dimension(:,:)   :: list, newlist, endlist
     integer, allocatable, dimension(:)     :: nr, maxiter
-    integer :: i, j, t, n, nnn, ii, jj, tt, currid, tmin, tmax, iter, maxpassive=0
+    integer :: i, j, t, n, ii, jj, tt, tmin, tmax, iter
     integer :: nn, nlist, nnewlist, nendlist, npassive, totnewcells, nractive
     ! list has shape (4, cell%nelements) and stores (i,j,t,n) where i,j and the
     ! position indecies, t the time index and n the number of splitters for this
@@ -190,7 +194,7 @@ module modtrack
       if (nendlist < oldcell%nelements) then
         nlist = nendlist
         loop: do n = 1, oldcell%nelements
-          if (bool(cellloc(1,n), cellloc(2,n), cellloc(3,n)) == -2) then !Found new outflow region
+          if (obj_mask(cellloc(1,n), cellloc(2,n), cellloc(3,n)) == -2) then !Found new outflow region
 !             npassive = npassive + 1
             totnewcells = totnewcells + 1
             nr(totnewcells) = 0
@@ -260,9 +264,9 @@ module modtrack
         nn = endlist(4,n)
         nr(nn) = nr(nn) + 1
         newcells(nn)%p%loc(:,nr(nn)) = endlist(1:3,n)
-        newcells(nn)%p%value(1,nr(nn)) = var(endlist(1,n),endlist(2,n),endlist(3,n),ibase)
-        newcells(nn)%p%value(2,nr(nn)) = var(endlist(1,n),endlist(2,n),endlist(3,n),itop)
-        newcells(nn)%p%value(3,nr(nn)) = var(endlist(1,n),endlist(2,n),endlist(3,n),ivalue)
+        newcells(nn)%p%value(1,nr(nn)) = var_base(endlist(1,n),endlist(2,n),endlist(3,n))
+        newcells(nn)%p%value(2,nr(nn)) = var_top(endlist(1,n),endlist(2,n),endlist(3,n))
+        newcells(nn)%p%value(3,nr(nn)) = var_value(endlist(1,n),endlist(2,n),endlist(3,n))
       end do
 
 
@@ -287,10 +291,10 @@ module modtrack
       allocate(cell%value(3,cell%nelements))
       cell%loc(:,1:cell%nelements) = cellloc(:,1:cell%nelements)
       do n = 1, cell%nelements
-        cell%value(1, n) = var(cellloc(1,n), cellloc(2,n), cellloc(3,n), ibase)
-        cell%value(2, n) = var(cellloc(1,n), cellloc(2,n), cellloc(3,n), itop)
-        cell%value(3, n) = var(cellloc(1,n), cellloc(2,n), cellloc(3,n), ivalue)
-        bool(cellloc(1,n), cellloc(2,n), cellloc(3,n)) = -1
+        cell%value(1, n) = var_base(cellloc(1,n), cellloc(2,n), cellloc(3,n))
+        cell%value(2, n) = var_top(cellloc(1,n), cellloc(2,n), cellloc(3,n))
+        cell%value(3, n) = var_value(cellloc(1,n), cellloc(2,n), cellloc(3,n))
+        obj_mask(cellloc(1,n), cellloc(2,n), cellloc(3,n)) = -1
       end do
 
     end if
@@ -332,7 +336,7 @@ module modtrack
             n = cell%nsplitters
           end if
           nlist = nlist + 1
-          bool(i,j,t) = n
+          obj_mask(i,j,t) = n
           list(1,nlist) = i
           list(2,nlist) = j
           list(3,nlist) = t
@@ -349,8 +353,8 @@ module modtrack
       !Look west
       ii = i - 1
       if (ii.le.0) ii = nx
-      if (bool(ii,j,t)==-2 .and. var(ii,j,t,ibase) < var(i,j,t,ibase) + cbstep) then
-        bool(ii,j,t) = list(4,nn)
+      if (obj_mask(ii,j,t)==-2 .and. var_base(ii,j,t) < var_base(i,j,t) + cbstep) then
+        obj_mask(ii,j,t) = list(4,nn)
         nnewlist = nnewlist + 1
         newlist(1:3,nnewlist) = (/ii,j,t/)
         newlist(4,nnewlist) = list(4,nn)
@@ -359,8 +363,8 @@ module modtrack
       !Look east
       ii = i + 1
       if (ii.gt.nx) ii = 1
-      if (bool(ii,j,t)==-2 .and. var(ii,j,t,ibase) < var(i,j,t,ibase) + cbstep) then
-        bool(ii,j,t) = list(4,nn)
+      if (obj_mask(ii,j,t)==-2 .and. var_base(ii,j,t) < var_base(i,j,t) + cbstep) then
+        obj_mask(ii,j,t) = list(4,nn)
         nnewlist = nnewlist + 1
         newlist(1:3,nnewlist) = (/ii,j,t/)
         newlist(4,nnewlist) = list(4,nn)
@@ -369,8 +373,8 @@ module modtrack
       !Look north
       jj = j - 1
       if (jj.le.0) jj = ny
-      if (bool(i,jj,t)==-2 .and. var(i,jj,t,ibase) < var(i,j,t,ibase) + cbstep) then
-        bool(i,jj,t) = list(4,nn)
+      if (obj_mask(i,jj,t)==-2 .and. var_base(i,jj,t) < var_base(i,j,t) + cbstep) then
+        obj_mask(i,jj,t) = list(4,nn)
         nnewlist = nnewlist + 1
         newlist(1:3,nnewlist) = (/i,jj,t/)
         newlist(4,nnewlist) = list(4,nn)
@@ -379,8 +383,8 @@ module modtrack
       !Look south
       jj = j + 1
       if (jj.gt.ny) jj = 1
-      if (bool(i,jj,t)==-2 .and. var(i,jj,t,ibase) < var(i,j,t,ibase) + cbstep) then
-        bool(i,jj,t) = list(4,nn)
+      if (obj_mask(i,jj,t)==-2 .and. var_base(i,jj,t) < var_base(i,j,t) + cbstep) then
+        obj_mask(i,jj,t) = list(4,nn)
         nnewlist = nnewlist + 1
         newlist(1:3,nnewlist) = (/i,jj,t/)
         newlist(4,nnewlist) = list(4,nn)
@@ -389,8 +393,8 @@ module modtrack
       !Look forward
       tt = t+1
       if (tt <= nt) then
-        if (bool(i,j,tt)==-2 .and. var(i,j,tt,ibase) < var(i,j,t,ibase) + cbstep) then
-          bool(i,j,tt) = list(4,nn)
+        if (obj_mask(i,j,tt)==-2 .and. var_base(i,j,tt) < var_base(i,j,t) + cbstep) then
+          obj_mask(i,j,tt) = list(4,nn)
           nnewlist = nnewlist + 1
           newlist(1:3,nnewlist) = (/i,j,tt/)
           newlist(4,nnewlist) = list(4,nn)
@@ -400,8 +404,8 @@ module modtrack
       !Look backward
       tt = t - 1
       if (tt >=tstart) then
-        if (bool(i,j,tt)==-2 .and. var(i,j,tt,ibase) < var(i,j,t,ibase) + cbstep) then
-          bool(i,j,tt) = list(4,nn)
+        if (obj_mask(i,j,tt)==-2 .and. var_base(i,j,tt) < var_base(i,j,t) + cbstep) then
+          obj_mask(i,j,tt) = list(4,nn)
           nnewlist = nnewlist + 1
           newlist(1:3,nnewlist) = (/i,j,tt/)
           newlist(4,nnewlist) = list(4,nn)
@@ -417,7 +421,7 @@ module modtrack
       nr(totnewcells) = nr(totnewcells) + 1
 !       if(nr(totnewcells) >= minparentel) nractive = 0
       nendlist = nendlist + 1
-      bool(i,j,t) = -1
+      obj_mask(i,j,t) = -1
       endlist(1:3,nendlist) = (/i,j,t/)
       endlist(4,nendlist)   = totnewcells
 
@@ -426,24 +430,24 @@ module modtrack
       jj = j
       tt = t
       if (ii.le.0) ii = nx
-      if (bool(ii,jj,tt)==-2) then
+      if (obj_mask(ii,jj,tt)==-2) then
         call newpassive(ii,jj,tt)
-      elseif (nractive > 0 .and. bool(ii,jj,tt) /= nractive) then
+      elseif (nractive > 0 .and. obj_mask(ii,jj,tt) /= nractive) then
         nractive = 0
-      elseif (nractive <0 .and. bool(ii,jj,tt) >0) then
-        nractive = bool(ii,jj,tt)
+      elseif (nractive <0 .and. obj_mask(ii,jj,tt) >0) then
+        nractive = obj_mask(ii,jj,tt)
       end if
       !Look east
       ii = i + 1
       jj = j
       tt = t
       if (ii.gt.nx) ii = 1
-      if (bool(ii,jj,tt)==-2) then
+      if (obj_mask(ii,jj,tt)==-2) then
         call newpassive(ii,jj,tt)
-      elseif (nractive > 0 .and. bool(ii,jj,tt) /= nractive) then
+      elseif (nractive > 0 .and. obj_mask(ii,jj,tt) /= nractive) then
         nractive = 0
-      elseif (nractive <0 .and. bool(ii,jj,tt) >0) then
-        nractive = bool(ii,jj,tt)
+      elseif (nractive <0 .and. obj_mask(ii,jj,tt) >0) then
+        nractive = obj_mask(ii,jj,tt)
       end if
 
       !Look north
@@ -451,12 +455,12 @@ module modtrack
       jj = j - 1
       tt = t
       if (jj.le.0) jj = ny
-      if (bool(ii,jj,tt)==-2) then
+      if (obj_mask(ii,jj,tt)==-2) then
         call newpassive(ii,jj,tt)
-      elseif (nractive > 0 .and. bool(ii,jj,tt) /= nractive) then
+      elseif (nractive > 0 .and. obj_mask(ii,jj,tt) /= nractive) then
         nractive = 0
-      elseif (nractive <0 .and. bool(ii,jj,tt) >0) then
-        nractive = bool(ii,jj,tt)
+      elseif (nractive <0 .and. obj_mask(ii,jj,tt) >0) then
+        nractive = obj_mask(ii,jj,tt)
       end if
 
       !Look south
@@ -464,12 +468,12 @@ module modtrack
       jj = j + 1
       tt = t
       if (jj.gt.ny) jj = 1
-      if (bool(ii,jj,tt)==-2) then
+      if (obj_mask(ii,jj,tt)==-2) then
         call newpassive(ii,jj,tt)
-      elseif (nractive > 0 .and. bool(ii,jj,tt) /= nractive) then
+      elseif (nractive > 0 .and. obj_mask(ii,jj,tt) /= nractive) then
         nractive = 0
-      elseif (nractive <0 .and. bool(ii,jj,tt) >0) then
-        nractive = bool(ii,jj,tt)
+      elseif (nractive <0 .and. obj_mask(ii,jj,tt) >0) then
+        nractive = obj_mask(ii,jj,tt)
       end if
 
       !Look forward
@@ -477,12 +481,12 @@ module modtrack
       jj = j
       tt = t + 1
       if (tt <=nt) then
-        if (bool(ii,jj,tt)==-2) then
+        if (obj_mask(ii,jj,tt)==-2) then
           call newpassive(ii,jj,tt)
-        elseif (nractive > 0 .and. bool(ii,jj,tt) /= nractive) then
+        elseif (nractive > 0 .and. obj_mask(ii,jj,tt) /= nractive) then
           nractive = 0
-        elseif (nractive <0 .and. bool(ii,jj,tt) >0) then
-          nractive = bool(ii,jj,tt)
+        elseif (nractive <0 .and. obj_mask(ii,jj,tt) >0) then
+          nractive = obj_mask(ii,jj,tt)
         end if
       end if
 
@@ -491,12 +495,12 @@ module modtrack
       jj = j
       tt = t - 1
       if (tt>=tstart) then
-        if (bool(ii,jj,tt)==-2) then
+        if (obj_mask(ii,jj,tt)==-2) then
           call newpassive(ii,jj,tt)
-        elseif (nractive > 0 .and. bool(ii,jj,tt) /= nractive) then
+        elseif (nractive > 0 .and. obj_mask(ii,jj,tt) /= nractive) then
           nractive = 0
-        elseif (nractive <0 .and. bool(ii,jj,tt) >0) then
-          nractive = bool(ii,jj,tt)
+        elseif (nractive <0 .and. obj_mask(ii,jj,tt) >0) then
+          nractive = obj_mask(ii,jj,tt)
         end if
       end if
     end subroutine newpassive
@@ -558,27 +562,31 @@ module modtrack
   !! - copy into `cell.loc` the location in space of time of each element
   !! - set in `cell.value` the scalar values of each element (which a defined in
   !! both space and time) wrt cloud-top, cloud-base and "ivalue" ??
-  !! - bool is set to `-1` for all datapoints for the elements in the current
+  !! - obj_mask is set to `-1` for all datapoints for the elements in the current
   !! cell
   !!
   !! @TODO what does `ivalue` mean here?
-  subroutine finalizecell(cell, ncells, parentarr)
+  subroutine finalizecell(cell, ncells, parentarr, obj_mask, var_base, var_top, var_value)
     type(celltype), pointer, intent(inout)                   :: cell
     integer, intent(out)                             :: ncells
     type(cellptr), allocatable, dimension(:,:,:), intent(inout), optional :: parentarr
-    integer :: n, i, j, t, nr
+    integer :: n
+    integer(kind=4), dimension(:,:,:), intent(inout) :: obj_mask
+    integer(kind=2), dimension(:,:,:), intent(in) :: var_base
+    integer(kind=2), dimension(:,:,:), intent(in) :: var_top
+    integer(kind=2), dimension(:,:,:), intent(in) :: var_value
 
     if (present(parentarr)) then
-      call splitcell(cell, ncells, parentarr)
+      call splitcell(cell, ncells, parentarr, obj_mask, var_base, var_top, var_value)
     else
       allocate(cell%loc(3,cell%nelements))
       allocate(cell%value(3,cell%nelements))
       cell%loc(:,1:cell%nelements) = cellloc(:,1:cell%nelements)
       do n = 1, cell%nelements
-        cell%value(1, n) = var(cellloc(1,n), cellloc(2,n), cellloc(3,n), ibase)
-        cell%value(2, n) = var(cellloc(1,n), cellloc(2,n), cellloc(3,n), itop)
-        cell%value(3, n) = var(cellloc(1,n), cellloc(2,n), cellloc(3,n), ivalue)
-        bool(cellloc(1,n), cellloc(2,n), cellloc(3,n)) = -1
+        cell%value(1, n) = var_base(cellloc(1,n), cellloc(2,n), cellloc(3,n))
+        cell%value(2, n) = var_top(cellloc(1,n), cellloc(2,n), cellloc(3,n))
+        cell%value(3, n) = var_value(cellloc(1,n), cellloc(2,n), cellloc(3,n))
+        obj_mask(cellloc(1,n), cellloc(2,n), cellloc(3,n)) = -1
       end do
     end if
     ncells = ncells + 1
@@ -589,16 +597,20 @@ module modtrack
   !> points in space and time and if they satisfy the constraints from being part of
   !> the same cell:
   !!
-  !! set bool=-2 so that this data-point is not considered twice for multiple
+  !! set obj_mask=-2 so that this data-point is not considered twice for multiple
   !! cells, store the position in space and time into the `cellloc` array and
   !! increment the `nelements` counter on the provided cell
   !!
   !! TODO: Looking west/east/north/south and truncating the indexing near the
   !! edge is unnecessarily costly, the current element will be checked twice
-  recursive subroutine newelement(i, j, t, cell)
+  recursive subroutine newelement(i, j, t, cell, obj_mask, var_base, var_top)
     integer, intent(in)                                      :: i, j, t
     type(celltype),pointer, intent(inout)                    :: cell
     integer :: ii, jj, tt
+    integer(kind=4), dimension(:,:,:), intent(inout) :: obj_mask
+
+    integer(kind=2), dimension(:,:,:), intent(in) :: var_base
+    integer(kind=2), dimension(:,:,:), intent(in) :: var_top
 
     cell%nelements = cell%nelements + 1
     if (mod(cell%nelements,10000000) == 0) write(*,*) 'Cell element ', cell%nelements
@@ -606,16 +618,16 @@ module modtrack
     cellloc(2,cell%nelements) = j
     cellloc(3,cell%nelements) = t
 
-    bool(i, j, t) = -2
+    obj_mask(i, j, t) = -2
 
     !Look west
     ii = i - 1
     jj = j
     tt = t
     if (ii.le.0) ii = nx
-    if (bool(ii,jj,tt)==0) then
-      if (var(i,j,t,ibase) <= var(ii,jj,tt,itop) .and. var(i,j,t,itop) >= var(ii,jj,tt,ibase)) then
-        call newelement(ii,jj,tt,cell)
+    if (obj_mask(ii,jj,tt)==0) then
+      if (var_base(i,j,t) <= var_top(ii,jj,tt) .and. var_top(i,j,t) >= var_base(ii,jj,tt)) then
+        call newelement(ii,jj,tt,cell, obj_mask, var_base, var_top)
       end if
     end if
     !Look east
@@ -623,9 +635,9 @@ module modtrack
     jj = j
     tt = t
     if (ii.gt.nx) ii = 1
-    if (bool(ii,jj,tt)==0) then
-      if (var(i,j,t,ibase) <= var(ii,jj,tt,itop) .and. var(i,j,t,itop) >= var(ii,jj,tt,ibase)) then
-        call newelement(ii,jj,tt,cell)
+    if (obj_mask(ii,jj,tt)==0) then
+      if (var_base(i,j,t) <= var_top(ii,jj,tt) .and. var_top(i,j,t) >= var_base(ii,jj,tt)) then
+        call newelement(ii,jj,tt,cell, obj_mask, var_base, var_top)
       end if
     end if
 
@@ -634,9 +646,9 @@ module modtrack
     jj = j - 1
     tt = t
     if (jj.le.0) jj = ny
-    if (bool(ii,jj,tt)==0) then
-      if (var(i,j,t,ibase) <= var(ii,jj,tt,itop) .and. var(i,j,t,itop) >= var(ii,jj,tt,ibase)) then
-        call newelement(ii,jj,tt,cell)
+    if (obj_mask(ii,jj,tt)==0) then
+      if (var_base(i,j,t) <= var_top(ii,jj,tt) .and. var_top(i,j,t) >= var_base(ii,jj,tt)) then
+        call newelement(ii,jj,tt,cell, obj_mask, var_base, var_top)
       end if
     end if
 
@@ -645,9 +657,9 @@ module modtrack
     jj = j + 1
     tt = t
     if (jj.gt.ny) jj = 1
-    if (bool(ii,jj,tt)==0) then
-      if (var(i,j,t,ibase) <= var(ii,jj,tt,itop) .and. var(i,j,t,itop) >= var(ii,jj,tt,ibase)) then
-        call newelement(ii,jj,tt,cell)
+    if (obj_mask(ii,jj,tt)==0) then
+      if (var_base(i,j,t) <= var_top(ii,jj,tt) .and. var_top(i,j,t) >= var_base(ii,jj,tt)) then
+        call newelement(ii,jj,tt,cell, obj_mask, var_base, var_top)
       end if
     end if
 
@@ -656,9 +668,9 @@ module modtrack
     jj = j
     tt =t + 1
     if (tt <= nt) then
-      if (bool(ii,jj,tt)==0) then
-        if (var(i,j,t,ibase) <= var(ii,jj,tt,itop) .and. var(i,j,t,itop) >= var(ii,jj,tt,ibase)) then
-          call newelement(ii,jj,tt,cell)
+      if (obj_mask(ii,jj,tt)==0) then
+        if (var_base(i,j,t) <= var_top(ii,jj,tt) .and. var_top(i,j,t) >= var_base(ii,jj,tt)) then
+          call newelement(ii,jj,tt,cell, obj_mask, var_base, var_top)
         end if
       end if
     end if
@@ -667,9 +679,9 @@ module modtrack
     jj = j
     tt = t - 1
     if (tt >= tstart) then
-      if (bool(ii,jj,tt)==0) then
-        if (var(i,j,t,ibase) <= var(ii,jj,tt,itop) .and. var(i,j,t,itop) >= var(ii,jj,tt,ibase)) then
-          call newelement(ii,jj,tt,cell)
+      if (obj_mask(ii,jj,tt)==0) then
+        if (var_base(i,j,t) <= var_top(ii,jj,tt) .and. var_top(i,j,t) >= var_base(ii,jj,tt)) then
+          call newelement(ii,jj,tt,cell, obj_mask, var_base, var_top)
         end if
       end if
     end if
@@ -677,11 +689,17 @@ module modtrack
 
   !> Iterate over all data-points in space and time and construct `celltype`
   !> instances (stored in a linked list through the `next`/`previous` attributes) 
-  subroutine dotracking(cell, ncells, nmincells, parentarr)
+  subroutine dotracking(cell, ncells, nmincells, obj_mask, var_base, var_top, var_value, parentarr)
     type(celltype), pointer, intent(inout)                   :: cell
     integer, intent(out)                             :: ncells
     integer, intent(in)                                      :: nmincells
+    integer(kind=2), dimension(:,:,:), intent(in) :: var_base
+    integer(kind=2), dimension(:,:,:), intent(in) :: var_top
+    integer(kind=2), dimension(:,:,:), intent(in) :: var_value
+
     type(cellptr), allocatable, dimension(:,:,:), intent(inout), optional :: parentarr
+    integer(kind=4), dimension(:,:,:), intent(inout) :: obj_mask
+
     integer :: i, j, t
     write (*,*) '.. entering tracking'
 
@@ -692,14 +710,14 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
       if(mod(t,10)==0) write (*,'(A,I10,A,I10)') "Time =", t,"  Nr of Cells", ncells
       do  j = 1, ny
         do i = 1, nx
-          if (bool(i,j,t)==0) then
+          if (obj_mask(i,j,t)==0) then
 !             write (*,*) 'Create a new cell'
             call createcell(cell)
             number = 0
-            call newelement(i, j, t, cell)
+            call newelement(i, j, t, cell, obj_mask, var_base, var_top)
             if (cell%nelements >= nmincells) then
               if(cell%nelements> 10000000) write (*,*) '..finalizing cell'
-              call finalizecell(cell, ncells, parentarr)
+              call finalizecell(cell, ncells, parentarr, obj_mask, var_base, var_top, var_value)
             else
               call deletecell(cell)
             end if
@@ -760,32 +778,35 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
   end subroutine fillparentarr
 
 
-  !> Check if successive timesteps appear to strange number of `bool==0`
+  !> Check if successive timesteps appear to strange number of `obj_mask==0`
   !> data-points
   !!
   !! Strange defined as either:
-  !! - number of cells with bool==0 was above 100 in previous step and is 0 in current 
-  !! - succesive timesteps has less than 25% of bool==0 than previous timestep
+  !! - number of cells with obj_mask==0 was above 100 in previous step and is 0 in current 
+  !! - succesive timesteps has less than 25% of obj_mask==0 than previous timestep
   !!
-  !! There's something strange whereby bool is actually changed if either of the
+  !! There's something strange whereby obj_mask is actually changed if either of the
   !! above is true, I think this is to always relate to the last timestep that
   !! was deemed to be good for comparison, maybe...
-  subroutine checkframes
+  subroutine checkframes(obj_mask)
+    integer(kind=4), dimension(:,:,:), intent(inout) :: obj_mask
+
     integer :: t, count1, count2
     real    :: hlp
+
       !..check for empty frames
     write(0,*) 'Check frames'
     count2 = 0
     do t = 2, nt
-      count1 = count(bool(:,:,t)==0)
+      count1 = count(obj_mask(:,:,t)==0)
       hlp = float(count1)/float(count2)
       if (count1.eq.0.and.count2.gt.100) then
           write (0,*) 'WARNING: empty frame at t = ',t
-          bool(:,:,t)= bool(:,:,t-1)
+          obj_mask(:,:,t)= obj_mask(:,:,t-1)
           count1 = count2
       elseif (hlp.lt.0.25) then
           write (0,*) 'WARNING: strange frame at t = ',t
-          bool(:,:,t)= bool(:,:,t-1)
+          obj_mask(:,:,t)= obj_mask(:,:,t-1)
           count1 = count2
       end if
       count2 = count1

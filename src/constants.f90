@@ -55,4 +55,10 @@ module constants
   public lwpzero, lwprange, lwpmin
   public rwpzero, rwprange, rwpmin
 
+  public i_corethres, i_lwpthres, i_thermthres, i_rwpthres
+
+  !main
+  public rwpthres, lwpthres, corethres, thermthres
+  public thermzero, thermrange
+
 end module constants

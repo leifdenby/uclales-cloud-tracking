@@ -14,7 +14,7 @@ program tracking
   use tracking_data, only: ncores, nrains, nthermals, nclouds
   use tracking_data, only: nvar
 
-  use tracking_common, only: cellptr, bool, var, cbstep
+  use tracking_common, only: cellptr, var, cbstep
   use tracking_common, only: ibase, itop, ivalue
   use tracking_common, only: dt, dx, dy
   use tracking_common, only: nt, nx, ny
@@ -28,69 +28,36 @@ program tracking
   use field_loader, only: read_named_input
 
   use constants, only: nchunk
+  use constants, only: i_corethres, i_lwpthres, i_thermthres, i_rwpthres
+  use constants, only: distrange, distzero
+  use constants, only: lwpzero, rwpzero, corezero, thermzero
+  use constants, only: lwpthres, rwpthres, corethres, thermthres
+  use constants, only: lwprange, rwprange, corerange, thermrange
 
   use modstatistics, only: dostatistics
 
   implicit none
 
-  real, parameter :: thermmin = -1.
-  real, parameter :: thermmax = 10000.
-  real, parameter :: thermthres = 300.
-
-  real, parameter :: lwpmin   = -1.
-  real, parameter :: lwpmax   = 10.
-  real, parameter :: lwpthres = 0.01
-
-  real, parameter :: coremin  = -5.
-  real, parameter :: coremax  = 5.
-  real, parameter :: corethres = 0.5
-
-  real, parameter :: rwpmin   = -1.
-  real, parameter :: rwpmax   = 10.
-  real, parameter :: rwpthres = 0.01
-
-  real, parameter :: distmin = -1.
-  real, parameter :: distmax = 5000.
 
   real, parameter :: maxheight = 5000.
 
   integer, parameter :: nmincells_cloud  = 1
   integer, parameter :: nmincells        = 4
 
-  ! center and range values for parameters
-  real, parameter :: thermzero  = 0.5*(thermmax + thermmin)
-  real, parameter :: thermrange = (thermmax - thermmin)/real(huge(1_2))
-
-  real, parameter :: lwpzero  = 0.5*(lwpmax + lwpmin)
-  real, parameter :: lwprange = (lwpmax - lwpmin)/real(huge(1_2))
-
-  real, parameter :: corezero  = 0.5*(coremax + coremin)
-  real, parameter :: corerange = (coremax - coremin)/real(huge(1_2))
-
-  real, parameter :: rwpzero  = 0.5*(rwpmax + rwpmin)
-  real, parameter :: rwprange = (rwpmax - rwpmin)/real(huge(1_2))
-
-  real, parameter :: distzero  = 0.5*(distmax + distmin)
-  real, parameter :: distrange = (distmax - distmin)/real(huge(1_2))
-
-  integer(kind=2), parameter :: i_lwpthres   = (lwpthres - lwpzero)/lwprange
-  integer(kind=2), parameter :: i_corethres  = (corethres - corezero)/corerange
-  integer(kind=2), parameter :: i_thermthres = (thermthres - thermzero)/thermrange
-  integer(kind=2), parameter :: i_rwpthres   = (rwpthres - rwpzero)/rwprange
-
   ! runtime variables
   type(cellptr), dimension(:,:,:), allocatable :: parentarr
 
   logical :: lcore = .false., lcloud = .false., lthermal = .false., lrain = .false., lrwp = .false.
-  integer :: i,j,k,n, kk, kkmax
-  integer :: ub, lb, vlength, fid, finput, finput2
+  integer :: n
+  integer :: ub, lb, vlength, fid, finput
   character(100) :: criterion, ctmp
   character(100) :: filename
   type(netcdfvar), dimension(10) :: ivar
   type(netcdfvar) :: ovar
   real, allocatable, dimension(:) :: x, y, t
-  integer(kind=2), dimension(:,:,:), allocatable :: base, top
+  integer(kind=2), dimension(:,:,:), allocatable :: var_base, var_top
   integer(kind=2), dimension(:), allocatable :: minbasecloud, minbasetherm
+  integer(kind=4), dimension(:,:,:), allocatable :: obj_mask
 
 
   if (command_argument_count() == 0) then
@@ -115,29 +82,31 @@ program tracking
   allocate(var(nx, ny, tstart:nt, nvar))
   !allocate(var_min(nx, ny, tstart:nt))
   !allocate(var_max(nx, ny, tstart:nt))
+  allocate(var_base(nx, ny, tstart:nt))
+  allocate(var_top(nx, ny, tstart:nt))
 
   allocate(parentarr(nx, ny, tstart:nt))
-  allocate(bool(nx, ny, tstart:nt))
+  allocate(obj_mask(nx, ny, tstart:nt))
 
 
   minparentel = 100!nint(50./(dx*dy*dt))
   if (lthermal) then
     write (*,*) 'Thermals....'
     call read_named_input(var(:,:,:,ithermal), ivar(ithermal))
-    ivar(1)%name  = 'trcbase'
-    ivar(2)%name  = 'trctop'
-    do n = 1,2
-    call read_named_input(var(:,:,:,n), ivar(n))
-    end do
+
+    ivar(ibase)%name  = 'trcbase'
+    ivar(itop)%name  = 'trctop'
+    call read_named_input(var_base, ivar(ibase))
+    call read_named_input(var_top, ivar(itop))
 
     allocate(minbasetherm(tstart:nt))
     minbasetherm = (100.-distzero)/distrange
 
-    bool = -1
+    obj_mask = -1
     where (var(:,:,:,ivalue) > i_thermthres)
-      bool = 0
+      obj_mask = 0
     end where
-    call dotracking(thermal, nthermals,nmincells)
+    call dotracking(thermal, nthermals,nmincells, obj_mask, var(:,:,:,ibase), var(:,:,:,itop), var(:,:,:,ivalue))
   end if
 
 
@@ -151,11 +120,10 @@ program tracking
 
     ! load cldbase => var(:,:,:,ibase)
     ! load cldtop  => var(:,:,:,itop)
-    ivar(1)%name  = 'cldbase'
-    ivar(2)%name  = 'cldtop'
-    do n = 1,2
-    call read_named_input(var(:,:,:,n), ivar(n))
-    end do
+    ivar(ibase)%name  = 'cldbase'
+    ivar(itop)%name  = 'cldtop'
+    call read_named_input(var_base, ivar(ibase))
+    call read_named_input(var_top, ivar(itop))
 
     if (lcore) then
       write (*,*) 'Cores....'
@@ -163,47 +131,47 @@ program tracking
 
       call read_named_input(var(:,:,:,ivalue), ivar(icore))
 
-      bool = -1
+      obj_mask = -1
       allocate(minbasecloud(tstart:nt))
       do n=tstart, nt
-        minbasecloud(n) = (maxval(var(:,:,n,itop)) + minval(var(:,:,n,ibase),var(:,:,n,ibase)>fillvalue_i16) )/2
+        minbasecloud(n) = (maxval(var_top(:,:,n)) + minval(var_base(:,:,n),var_base(:,:,n)>fillvalue_i16) )/2
         if (any(var(:,:,n,3) > i_lwpthres)) then
           where (var(:,:,n,3) > i_lwpthres &
               .and. var(:,:,n,ivalue) > i_corethres &
-              .and. var(:,:,n,ibase) < minbasecloud(n))
-            bool(:,:,n) = 0
+              .and. var_base(:,:,n) < minbasecloud(n))
+            obj_mask(:,:,n) = 0
           end where
         end if
       end do
 
       !       call checkframes
-      call dotracking(core, ncores,nmincells)
+      call dotracking(core, ncores,nmincells, obj_mask, var_base, var_top, var(:,:,:,ivalue))
       ivalue = 3
     end if
 
     !Loop over clouds
     if (lcloud) then
       write (*,*) 'Clouds....'
-      bool = -1
+      obj_mask = -1
       where (var(:,:,:,ilwp) > i_lwpthres)
-        bool = 0
+        obj_mask = 0
       end where
       !       do n=1,tstart-1
-      !         bool(:,:,n) = -1
+      !         obj_mask(:,:,n) = -1
       !       end do
       !       call checkframes
       if (lcore) then
         call fillparentarr(core, minbasecloud, parentarr)
-        call dotracking(cloud, nclouds,nmincells_cloud, parentarr)
+        call dotracking(cloud, nclouds,nmincells_cloud, obj_mask, var(:,:,:,ibase), var(:,:,:,itop), var(:,:,:,ivalue), parentarr)
       else
-        call dotracking(cloud, nclouds,nmincells_cloud)
+        call dotracking(cloud, nclouds,nmincells_cloud, obj_mask, var(:,:,:,ibase), var(:,:,:,itop), var(:,:,:,ivalue))
       end if
       if (lthermal) then
-        allocate(base(nx, ny, tstart:nt))
-        allocate(top(nx, ny, tstart:nt))
-        call fillparentarr(thermal, minbasetherm, parentarr, base, top)
-        call findparents(cloud, parentarr, base, top)
-        deallocate(base,top)
+        allocate(var_base(nx, ny, tstart:nt))
+        allocate(var_top(nx, ny, tstart:nt))
+        call fillparentarr(thermal, minbasetherm, parentarr, var_base, var_top)
+        call findparents(cloud, parentarr, var_base, var_top)
+        deallocate(var_base,var_top)
       end if
     end if
   end if
@@ -219,23 +187,20 @@ program tracking
     end do
 
     !Loop over rain patches
-    bool = -1
+    obj_mask = -1
     where (var(:,:,:,ivalue) > i_rwpthres)
-      bool = 0
+      obj_mask = 0
     end where
 !       do n=1,tstart-1
-!         bool(:,:,n) = -1
+!         obj_mask(:,:,n) = -1
 !       end do
 !       call checkframes
-    call dotracking(rain, nrains,nmincells)
+    call dotracking(rain, nrains,nmincells, obj_mask, var(:,:,:,ibase), var(:,:,:,itop), var(:,:,:,ivalue))
     if (lcloud) then
-      allocate(base(nx, ny, tstart:nt))
-      allocate(top(nx, ny, tstart:nt))
       if (.not. allocated(minbasecloud)) allocate(minbasecloud(tstart:nt))
       minbasecloud = huge(1_2)
-      call fillparentarr(cloud, minbasecloud, parentarr, base, top)
-      call findparents(rain, parentarr, base, top)
-      deallocate(base,top)
+      call fillparentarr(cloud, minbasecloud, parentarr, var_base, var_top)
+      call findparents(rain, parentarr, var_base, var_top)
     end if
   end if
 
