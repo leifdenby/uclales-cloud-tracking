@@ -28,7 +28,10 @@ module tracking_common
 
 
   integer :: nrel_max
-  integer :: nx, ny, nt, tstart
+  integer :: nx = -1
+  integer :: ny = -1
+  integer :: nt = -1
+  integer :: tstart = -1
   integer(kind=4), dimension(:,:,:), allocatable :: bool
   integer(kind=2), dimension(:,:,:,:), allocatable :: var
   integer(kind=2), dimension(:,:,:), allocatable :: var_min

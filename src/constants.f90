@@ -23,10 +23,13 @@ module constants
 
   real, parameter :: maxheight = 5000.
 
-  integer, parameter :: nchunk = 100
+  integer, parameter :: nchunk = 100 !< number of time-steps to load in each "chunk"
 
   integer, parameter :: nmincells_cloud  = 1
   integer, parameter :: nmincells        = 4
+
+
+  !!! Derived variables below
 
   ! center and range values for parameters
   real, parameter :: thermzero  = 0.5*(thermmax + thermmin)
@@ -49,6 +52,9 @@ module constants
   integer(kind=2), parameter :: i_thermthres = (thermthres - thermzero)/thermrange
   integer(kind=2), parameter :: i_rwpthres   = (rwpthres - rwpzero)/rwprange
 
+  real, parameter :: cbstep = (300.)/distrange
+
+
   public nchunk
   public distzero, distrange, distmin
   public corezero, corerange, coremin
@@ -60,5 +66,10 @@ module constants
   !main
   public rwpthres, lwpthres, corethres, thermthres
   public thermzero, thermrange
+
+  public nmincells, nmincells_cloud
+
+  public cbstep
+  public maxheight
 
 end module constants

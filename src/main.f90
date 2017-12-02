@@ -14,7 +14,7 @@ program tracking
   use tracking_data, only: ncores, nrains, nthermals, nclouds
   use tracking_data, only: nvar
 
-  use tracking_common, only: cellptr, var, cbstep
+  use tracking_common, only: cellptr, var
   use tracking_common, only: ibase, itop, ivalue
   use tracking_common, only: dt, dx, dy
   use tracking_common, only: nt, nx, ny
@@ -28,33 +28,26 @@ program tracking
   use field_loader, only: read_named_input
 
   use constants, only: nchunk
+  use constants, only: nmincells, nmincells_cloud
   use constants, only: i_corethres, i_lwpthres, i_thermthres, i_rwpthres
   use constants, only: distrange, distzero
   use constants, only: lwpzero, rwpzero, corezero, thermzero
   use constants, only: lwpthres, rwpthres, corethres, thermthres
   use constants, only: lwprange, rwprange, corerange, thermrange
+  use constants, only: maxheight
 
   use modstatistics, only: dostatistics
 
   implicit none
-
-
-  real, parameter :: maxheight = 5000.
-
-  integer, parameter :: nmincells_cloud  = 1
-  integer, parameter :: nmincells        = 4
 
   ! runtime variables
   type(cellptr), dimension(:,:,:), allocatable :: parentarr
 
   logical :: lcore = .false., lcloud = .false., lthermal = .false., lrain = .false., lrwp = .false.
   integer :: n
-  integer :: ub, lb, vlength, fid, finput
-  character(100) :: criterion, ctmp
-  character(100) :: filename
+  integer :: fid
   type(netcdfvar), dimension(10) :: ivar
   type(netcdfvar) :: ovar
-  real, allocatable, dimension(:) :: x, y, t
   integer(kind=2), dimension(:,:,:), allocatable :: var_base, var_top
   integer(kind=2), dimension(:), allocatable :: minbasecloud, minbasetherm
   integer(kind=4), dimension(:,:,:), allocatable :: obj_mask
@@ -68,20 +61,13 @@ program tracking
      call exit(-1)
   endif
 
-  ! defined in `modtrack`
-  nt = 0
-  tstart = 1
-  cbstep = (300.)/distrange
-!  cbstep = (3000.)/distrange  !AXEL
-
   call parse_command_arguments()
+  call summarise_active_fields()
   call check_for_required_files(simulation_id)
   call setup_output(simulation_id)
   call read_input(simulation_id)
 
   allocate(var(nx, ny, tstart:nt, nvar))
-  !allocate(var_min(nx, ny, tstart:nt))
-  !allocate(var_max(nx, ny, tstart:nt))
   allocate(var_base(nx, ny, tstart:nt))
   allocate(var_top(nx, ny, tstart:nt))
 
@@ -106,7 +92,7 @@ program tracking
     where (var(:,:,:,ivalue) > i_thermthres)
       obj_mask = 0
     end where
-    call dotracking(thermal, nthermals,nmincells, obj_mask, var(:,:,:,ibase), var(:,:,:,itop), var(:,:,:,ivalue))
+    call dotracking(thermal, nthermals,nmincells, obj_mask, var_base, var_top, var(:,:,:,ivalue))
   end if
 
 
@@ -162,13 +148,12 @@ program tracking
       !       call checkframes
       if (lcore) then
         call fillparentarr(core, minbasecloud, parentarr)
-        call dotracking(cloud, nclouds,nmincells_cloud, obj_mask, var(:,:,:,ibase), var(:,:,:,itop), var(:,:,:,ivalue), parentarr)
+        call dotracking(cloud, nclouds,nmincells_cloud, obj_mask, var_base, var_top, var(:,:,:,ivalue), parentarr)
       else
-        call dotracking(cloud, nclouds,nmincells_cloud, obj_mask, var(:,:,:,ibase), var(:,:,:,itop), var(:,:,:,ivalue))
+        call dotracking(cloud, nclouds,nmincells_cloud, obj_mask, var_base, var_top, var(:,:,:,ivalue))
       end if
       if (lthermal) then
-        allocate(var_base(nx, ny, tstart:nt))
-        allocate(var_top(nx, ny, tstart:nt))
+        ! NB: `var_base` and `var_top` are overwritten here, we reuse them to save memory
         call fillparentarr(thermal, minbasetherm, parentarr, var_base, var_top)
         call findparents(cloud, parentarr, var_base, var_top)
         deallocate(var_base,var_top)
@@ -180,11 +165,10 @@ program tracking
     write (*,*) 'Rain....'
     call read_named_input(var(:,:,:,irain), ivar(irain))
 
-    ivar(1)%name  = 'rwpbase'
-    ivar(2)%name  = 'rwptop'
-    do n = 1,2
-      call read_named_input(var(:,:,:,n), ivar(n))
-    end do
+    ivar(ibase)%name  = 'rwpbase'
+    ivar(itop)%name  = 'rwptop'
+    call read_named_input(var_base, ivar(ibase))
+    call read_named_input(var_top, ivar(itop))
 
     !Loop over rain patches
     obj_mask = -1
@@ -195,10 +179,11 @@ program tracking
 !         obj_mask(:,:,n) = -1
 !       end do
 !       call checkframes
-    call dotracking(rain, nrains,nmincells, obj_mask, var(:,:,:,ibase), var(:,:,:,itop), var(:,:,:,ivalue))
+    call dotracking(rain, nrains,nmincells, obj_mask, var_base, var_top, var(:,:,:,ivalue))
     if (lcloud) then
       if (.not. allocated(minbasecloud)) allocate(minbasecloud(tstart:nt))
       minbasecloud = huge(1_2)
+      ! NB: `var_base` and `var_top` are overwritten here, we reuse them to save memory
       call fillparentarr(cloud, minbasecloud, parentarr, var_base, var_top)
       call findparents(rain, parentarr, var_base, var_top)
     end if
@@ -286,6 +271,9 @@ program tracking
 
      subroutine read_input(simulation_id)
         character(len=100), intent(in) :: simulation_id
+        character(100) :: filename
+        real, allocatable, dimension(:) :: x, y, t
+        integer :: finput
 
         filename = trim(simulation_id)//trim(ivar(nvar)%name)//'.nc'
         write(*,*) 'Reading dimensions, filename=', filename
@@ -336,6 +324,9 @@ program tracking
      ! analysis variables: `core`, `cloud`, `liquid`??, `thermal`, `rain` and `all`
      ! analysis variables defines which fields will be analysed
      subroutine parse_command_arguments()
+        character(100) :: criterion, ctmp
+        integer :: ub, lb, vlength
+
         call get_command_argument(1,simulation_id)
         simulation_id = trim(simulation_id)//'.out.xy.'
         call get_command_argument(2,ctmp)
@@ -428,4 +419,17 @@ program tracking
         if (irain    > 0) ivar(irain)%name    = 'rwp'
         ! End parse command line arguments
      end subroutine parse_command_arguments
+
+     subroutine summarise_active_fields
+        integer :: n
+        character(len=10) :: n_str
+        print *, "Active fields:"
+
+        do n=1, nvar
+          write (n_str, "(I1)") n
+          print *, "("//trim(n_str)//") => "//trim(ivar(n)%name)
+        enddo
+
+     end subroutine summarise_active_fields
+
 end program tracking
