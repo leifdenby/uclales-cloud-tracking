@@ -8,6 +8,7 @@ set (NETCDF_NC4 "YES")
 FIND_PACKAGE(NetCDF)
 
 add_executable(main
+        src/constants.f90
         src/modnetcdf.f90
         src/tracking_common.f90
         src/modarray.f90
@@ -25,8 +26,6 @@ set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
 
 target_link_libraries(main ${NETCDF_LIBRARIES_F90})
-
-message(${NETCDF_INCLUDES})
 
 #add_executable(orig_tracking_time
         #orig_src/tracking_time.f90)
