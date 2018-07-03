@@ -54,7 +54,6 @@ module constants
 
   real, parameter :: cbstep = (300.)/distrange
 
-
   public nchunk
   public distzero, distrange, distmin
   public corezero, corerange, coremin

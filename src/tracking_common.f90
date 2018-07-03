@@ -26,20 +26,16 @@ module tracking_common
     type(celltype), pointer :: head
   end type celltype
 
+  ! for indexing into %value array of celltype
+  integer, parameter :: ibase = 1, itop = 2, ivalue = 3
 
   integer :: nrel_max
   integer :: nx = -1
   integer :: ny = -1
   integer :: nt = -1
   integer :: tstart = -1
-  integer(kind=4), dimension(:,:,:), allocatable :: bool
-  integer(kind=2), dimension(:,:,:,:), allocatable :: var
-  integer(kind=2), dimension(:,:,:), allocatable :: var_min
-  integer(kind=2), dimension(:,:,:), allocatable :: var_max
-  integer, parameter :: ibase = 1, itop = 2
-  integer :: ivalue = 3
   real    :: dx, dy, dt
-  integer :: minparentel
+  integer, parameter :: minparentel = 100
   integer(kind=2)    :: cbstep
   logical, parameter :: ldebug = .false., lsiblings = .false.
 
@@ -48,7 +44,6 @@ module tracking_common
   public simulation_id
 
   ! both
-  public bool, var
   public ibase, itop, ivalue
   public celltype, cellptr
   public dt, dx, dy
@@ -58,6 +53,4 @@ module tracking_common
   public tstart
   public cbstep
 
-  public var_min
-  public var_max
 end module tracking_common

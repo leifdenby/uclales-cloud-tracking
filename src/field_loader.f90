@@ -8,11 +8,17 @@ module field_loader
 
   implicit none
 
+  ! the following arrays are for storing loaded fields and the mask in
+  integer(kind=4), dimension(:,:,:), allocatable :: bool
+  integer(kind=2), dimension(:,:,:,:), allocatable :: var
+  integer, parameter :: var_ibase = 1, var_itop = 2  ! base and top values are always index 1 and 2 in `var`
+
   private
   integer :: finput, finput2
   real, dimension(:,:,:), allocatable :: readfield, readfield2
 
   public read_named_input
+  public bool, var, var_ibase, var_itop
 
 contains
   subroutine lookup_scaling_values(var_name, value_offset, value_scaling, min_value)

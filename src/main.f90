@@ -9,13 +9,12 @@ program tracking
   use netcdf, only: nf90_hdf5
   use netcdf, only: nf90_put_att, nf90_create, nf90_enddef, nf90_open
 
-  use tracking_data, only: core, cloud, rain, thermal
+  use tracking_data, only: tracked_cores, tracked_clouds, tracked_rain, tracked_thermals
   use tracking_data, only: icore, irain, ilwp, ithermal
   use tracking_data, only: ncores, nrains, nthermals, nclouds
   use tracking_data, only: nvar
 
-  use tracking_common, only: cellptr, var
-  use tracking_common, only: ibase, itop, ivalue
+  use tracking_common, only: cellptr
   use tracking_common, only: dt, dx, dy
   use tracking_common, only: nt, nx, ny
   use tracking_common, only: minparentel
@@ -26,6 +25,8 @@ program tracking
   use modtrack, only: fillparentarr
 
   use field_loader, only: read_named_input
+  use field_loader, only: var
+  use field_loader, only: var_ibase, var_itop
 
   use constants, only: nchunk
   use constants, only: nmincells, nmincells_cloud
@@ -52,6 +53,7 @@ program tracking
   integer(kind=2), dimension(:), allocatable :: minbasecloud, minbasetherm
   integer(kind=4), dimension(:,:,:), allocatable :: obj_mask
 
+  integer :: var_ivalue  ! indicates which field of `var` we are currently using
 
   if (command_argument_count() == 0) then
      print *, "./tracking [filename-base] [starting timestep] [final timestep] [analysis variables]"
@@ -67,63 +69,81 @@ program tracking
   call setup_output(simulation_id)
   call read_input(simulation_id)
 
+  print *, "Allocating 3D arrays for storage"
+
+  print *, "var =>", nx, ny, tstart, nt, nvar
   allocate(var(nx, ny, tstart:nt, nvar))
   allocate(var_base(nx, ny, tstart:nt))
   allocate(var_top(nx, ny, tstart:nt))
 
+  print *, "parentarr =>", nx, ny, tstart, nt
   allocate(parentarr(nx, ny, tstart:nt))
   allocate(obj_mask(nx, ny, tstart:nt))
 
-
-  minparentel = 100!nint(50./(dx*dy*dt))
+  ! Identify and track thermals using Couvreux "radioactive scalar", from which the min-height,
+  ! max-height and the column-integrated value of this scalar
   if (lthermal) then
     write (*,*) 'Thermals....'
     call read_named_input(var(:,:,:,ithermal), ivar(ithermal))
 
-    ivar(ibase)%name  = 'trcbase'
-    ivar(itop)%name  = 'trctop'
-    call read_named_input(var_base, ivar(ibase))
-    call read_named_input(var_top, ivar(itop))
+    ivar(var_ibase)%name  = 'trcbase'
+    ivar(var_itop)%name  = 'trctop'
+    call read_named_input(var_base, ivar(var_ibase))
+    call read_named_input(var_top, ivar(var_itop))
 
     allocate(minbasetherm(tstart:nt))
     minbasetherm = (100.-distzero)/distrange
 
     obj_mask = -1
-    where (var(:,:,:,ivalue) > i_thermthres)
+    where (var(:,:,:,var_ivalue) > i_thermthres)
       obj_mask = 0
     end where
-    call dotracking(thermal, nthermals,nmincells, obj_mask, var_base, var_top, var(:,:,:,ivalue))
+    call dotracking(tracked_thermals, nthermals,nmincells, obj_mask, var_base, var_top, var(:,:,:,var_ivalue))
   end if
 
 
+  ! track cloud-cores and clouds
   if (lcore .or. lcloud) then
-    ! load lwp + rwp => var(:,:,:,ivalue), rescaling by lwpzero and lwprange
+    ! load lwp + rwp => var(:,:,:,var_ivalue), rescaling by lwpzero and lwprange
     if (.not. lrwp) then
       call read_named_input(var(:,:,:,ilwp), ivar(ilwp))
     else
       call read_named_input(var(:,:,:,ilwp), ivar(ilwp), ivar(irain))
     endif
 
-    ! load cldbase => var(:,:,:,ibase)
-    ! load cldtop  => var(:,:,:,itop)
-    ivar(ibase)%name  = 'cldbase'
-    ivar(itop)%name  = 'cldtop'
-    call read_named_input(var_base, ivar(ibase))
-    call read_named_input(var_top, ivar(itop))
+    ! load cldbase => var(:,:,:,var_ibase)
+    ! load cldtop  => var(:,:,:,var_itop)
+    ivar(var_ibase)%name  = 'cldbase'
+    ivar(var_itop)%name  = 'cldtop'
+    call read_named_input(var_base, ivar(var_ibase))
+    call read_named_input(var_top, ivar(var_itop))
 
+    ! track the cloud cores (regions of buoyancy) using a critical value for buoyancy as the mask
+    ! and the cloud-top and cloud-base height to decide connectivity
     if (lcore) then
       write (*,*) 'Cores....'
-      ivalue = 4
+      var_ivalue = 4
 
-      call read_named_input(var(:,:,:,ivalue), ivar(icore))
+      call read_named_input(var(:,:,:,var_ivalue), ivar(icore))
 
       obj_mask = -1
       allocate(minbasecloud(tstart:nt))
       do n=tstart, nt
+        ! define minimum cloud-base height as
+        !   minbasecloud = z_top_max + z_base_min_half
+        ! where
+        !   z_top_max : domain-wide maximum cloud-top height
+        !   z_base_min_half : half of domain-wide minimum cloud-base height (where the cloud-base heigth is defined)
+        ! (20/06/2018, Leif: it's unclear to me why using z_top_max isn't enough)
         minbasecloud(n) = (maxval(var_top(:,:,n)) + minval(var_base(:,:,n),var_base(:,:,n)>fillvalue_i16) )/2
+
         if (any(var(:,:,n,3) > i_lwpthres)) then
+          ! where
+          !       LWP is above threshold
+          !   and buoyancy is above threshold
+          !   and cloud-base height is below cloud-top height
           where (var(:,:,n,3) > i_lwpthres &
-              .and. var(:,:,n,ivalue) > i_corethres &
+              .and. var(:,:,n,var_ivalue) > i_corethres &
               .and. var_base(:,:,n) < minbasecloud(n))
             obj_mask(:,:,n) = 0
           end where
@@ -131,11 +151,13 @@ program tracking
       end do
 
       !       call checkframes
-      call dotracking(core, ncores,nmincells, obj_mask, var_base, var_top, var(:,:,:,ivalue))
-      ivalue = 3
+      call dotracking(tracked_cores, ncores,nmincells, obj_mask, var_base, var_top, var(:,:,:,var_ivalue))
+      var_ivalue = 3
     end if
 
-    !Loop over clouds
+    ! Track cloud using a critical value of column-integrated liquid as the mask and cloud-top and
+    ! cloud-base height as the mask. If cloud-cores have been tracked too the clouds are split by
+    ! their cores
     if (lcloud) then
       write (*,*) 'Clouds....'
       obj_mask = -1
@@ -147,15 +169,15 @@ program tracking
       !       end do
       !       call checkframes
       if (lcore) then
-        call fillparentarr(core, minbasecloud, parentarr)
-        call dotracking(cloud, nclouds,nmincells_cloud, obj_mask, var_base, var_top, var(:,:,:,ivalue), parentarr)
+        call fillparentarr(tracked_cores, minbasecloud, parentarr)
+        call dotracking(tracked_clouds, nclouds,nmincells_cloud, obj_mask, var_base, var_top, var(:,:,:,var_ivalue), parentarr)
       else
-        call dotracking(cloud, nclouds,nmincells_cloud, obj_mask, var_base, var_top, var(:,:,:,ivalue))
+        call dotracking(tracked_clouds, nclouds,nmincells_cloud, obj_mask, var_base, var_top, var(:,:,:,var_ivalue))
       end if
       if (lthermal) then
         ! NB: `var_base` and `var_top` are overwritten here, we reuse them to save memory
-        call fillparentarr(thermal, minbasetherm, parentarr, var_base, var_top)
-        call findparents(cloud, parentarr, var_base, var_top)
+        call fillparentarr(tracked_thermals, minbasetherm, parentarr, var_base, var_top)
+        call findparents(tracked_clouds, parentarr, var_base, var_top)
         deallocate(var_base,var_top)
       end if
     end if
@@ -165,56 +187,56 @@ program tracking
     write (*,*) 'Rain....'
     call read_named_input(var(:,:,:,irain), ivar(irain))
 
-    ivar(ibase)%name  = 'rwpbase'
-    ivar(itop)%name  = 'rwptop'
-    call read_named_input(var_base, ivar(ibase))
-    call read_named_input(var_top, ivar(itop))
+    ivar(var_ibase)%name  = 'rwpbase'
+    ivar(var_itop)%name  = 'rwptop'
+    call read_named_input(var_base, ivar(var_ibase))
+    call read_named_input(var_top, ivar(var_itop))
 
     !Loop over rain patches
     obj_mask = -1
-    where (var(:,:,:,ivalue) > i_rwpthres)
+    where (var(:,:,:,var_ivalue) > i_rwpthres)
       obj_mask = 0
     end where
 !       do n=1,tstart-1
 !         obj_mask(:,:,n) = -1
 !       end do
 !       call checkframes
-    call dotracking(rain, nrains,nmincells, obj_mask, var_base, var_top, var(:,:,:,ivalue))
+    call dotracking(tracked_rain, nrains,nmincells, obj_mask, var_base, var_top, var(:,:,:,var_ivalue))
     if (lcloud) then
       if (.not. allocated(minbasecloud)) allocate(minbasecloud(tstart:nt))
       minbasecloud = huge(1_2)
       ! NB: `var_base` and `var_top` are overwritten here, we reuse them to save memory
-      call fillparentarr(cloud, minbasecloud, parentarr, var_base, var_top)
-      call findparents(rain, parentarr, var_base, var_top)
+      call fillparentarr(tracked_clouds, minbasecloud, parentarr, var_base, var_top)
+      call findparents(tracked_rain, parentarr, var_base, var_top)
     end if
   end if
 
   if (lthermal) then
     ovar%name     = 'thrm'
     ovar%longname = 'Thermal'
-    call dostatistics(thermal, nthermals, ithermal, fid, ivar, distzero, distrange, maxheight,thermzero, thermrange, ovar)
-!     call delete_all(thermal)
+    call dostatistics(tracked_thermals, nthermals, ithermal, fid, ivar, distzero, distrange, maxheight,thermzero, thermrange, ovar)
+!     call delete_all(tracked_thermals)
   end if
 
   if (lcore) then
     ovar%name     = 'core'
     ovar%longname = 'Core'
-    call dostatistics(core, ncores, icore, fid, ivar, distzero, distrange, maxheight,corezero, corerange, ovar)
+    call dostatistics(tracked_cores, ncores, icore, fid, ivar, distzero, distrange, maxheight,corezero, corerange, ovar)
 !     call delete_all(core)
   end if
 
   if (lcloud) then
     ovar%name     = 'cloud'
     ovar%longname = 'Cloud'
-    call dostatistics(cloud, nclouds, ilwp, fid, ivar, distzero, distrange, maxheight,lwpzero, lwprange, ovar)
-!     call delete_all(cloud)
+    call dostatistics(tracked_clouds, nclouds, ilwp, fid, ivar, distzero, distrange, maxheight,lwpzero, lwprange, ovar)
+!     call delete_all(tracked_clouds)
   end if
 
   if (lrain) then
     ovar%name     = 'rain'
     ovar%longname = 'Rain patch'
-    call dostatistics(rain, nrains, irain, fid, ivar, distzero, distrange, maxheight, rwpzero, rwprange, ovar)
-!     call delete_all(rain)
+    call dostatistics(tracked_rain, nrains, irain, fid, ivar, distzero, distrange, maxheight, rwpzero, rwprange, ovar)
+!     call delete_all(tracked_rain)
   end if
   call check ( nf90_close(fid))
   write (*,*) '..Done'
