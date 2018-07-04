@@ -18,6 +18,7 @@ module modtrack_cell_splitting
     use tracking_common, only: createcell
     use tracking_common, only: deletecell
     use tracking_common, only: print_cell_debug
+    use tracking_common, only: MARKED_OBJECT, PROCESSED_OBJECT
     use constants, only: n_minparentel
 
     type(celltype), pointer, intent(inout)   :: cell
@@ -101,7 +102,7 @@ module modtrack_cell_splitting
           if (nendlist < oldcell%nelements) then
             nlist = nendlist
             loop: do n = 1, oldcell%nelements
-              if (obj_mask(cellloc(1,n), cellloc(2,n), cellloc(3,n)) == -2) then !Found new outflow region
+              if (obj_mask(cellloc(1,n), cellloc(2,n), cellloc(3,n)) == MARKED_OBJECT) then !Found new outflow region
       !             npassive = npassive + 1
                 totnewcells = totnewcells + 1
                 nr(totnewcells) = 0
@@ -202,7 +203,7 @@ module modtrack_cell_splitting
         cell%value(ibase, n) = var_base(cellloc(1,n), cellloc(2,n), cellloc(3,n))
         cell%value(itop, n) = var_top(cellloc(1,n), cellloc(2,n), cellloc(3,n))
         cell%value(ivalue, n) = var_value(cellloc(1,n), cellloc(2,n), cellloc(3,n))
-        obj_mask(cellloc(1,n), cellloc(2,n), cellloc(3,n)) = -1
+        obj_mask(cellloc(1,n), cellloc(2,n), cellloc(3,n)) = PROCESSED_OBJECT
       end do
 
     end if
@@ -282,6 +283,7 @@ module modtrack_cell_splitting
   subroutine findneighbour(list, nn, var_base, obj_mask, newlist, nr, nnewlist)
     use tracking_common, only: cbstep
     use tracking_common, only: tstart, nt, nx, ny
+    use tracking_common, only: MARKED_OBJECT
 
     integer,         intent(in), dimension(:,:)      :: list
     integer,         intent(in)                      :: nn
@@ -302,7 +304,7 @@ module modtrack_cell_splitting
     !Look west
     ii = i - 1
     if (ii.le.0) ii = nx
-    if (obj_mask(ii,j,t)==-2 .and. var_base(ii,j,t) < var_base(i,j,t) + cbstep) then
+    if (obj_mask(ii,j,t)==MARKED_OBJECT .and. var_base(ii,j,t) < var_base(i,j,t) + cbstep) then
       obj_mask(ii,j,t) = list(4,nn)
       nnewlist = nnewlist + 1
       newlist(1:3,nnewlist) = (/ii,j,t/)
@@ -312,7 +314,7 @@ module modtrack_cell_splitting
     !Look east
     ii = i + 1
     if (ii.gt.nx) ii = 1
-    if (obj_mask(ii,j,t)==-2 .and. var_base(ii,j,t) < var_base(i,j,t) + cbstep) then
+    if (obj_mask(ii,j,t)==MARKED_OBJECT .and. var_base(ii,j,t) < var_base(i,j,t) + cbstep) then
       obj_mask(ii,j,t) = list(4,nn)
       nnewlist = nnewlist + 1
       newlist(1:3,nnewlist) = (/ii,j,t/)
@@ -322,7 +324,7 @@ module modtrack_cell_splitting
     !Look north
     jj = j - 1
     if (jj.le.0) jj = ny
-    if (obj_mask(i,jj,t)==-2 .and. var_base(i,jj,t) < var_base(i,j,t) + cbstep) then
+    if (obj_mask(i,jj,t)==MARKED_OBJECT .and. var_base(i,jj,t) < var_base(i,j,t) + cbstep) then
       obj_mask(i,jj,t) = list(4,nn)
       nnewlist = nnewlist + 1
       newlist(1:3,nnewlist) = (/i,jj,t/)
@@ -332,7 +334,7 @@ module modtrack_cell_splitting
     !Look south
     jj = j + 1
     if (jj.gt.ny) jj = 1
-    if (obj_mask(i,jj,t)==-2 .and. var_base(i,jj,t) < var_base(i,j,t) + cbstep) then
+    if (obj_mask(i,jj,t)==MARKED_OBJECT .and. var_base(i,jj,t) < var_base(i,j,t) + cbstep) then
       obj_mask(i,jj,t) = list(4,nn)
       nnewlist = nnewlist + 1
       newlist(1:3,nnewlist) = (/i,jj,t/)
@@ -342,7 +344,7 @@ module modtrack_cell_splitting
     !Look forward
     tt = t+1
     if (tt <= nt) then
-      if (obj_mask(i,j,tt)==-2 .and. var_base(i,j,tt) < var_base(i,j,t) + cbstep) then
+      if (obj_mask(i,j,tt)==MARKED_OBJECT .and. var_base(i,j,tt) < var_base(i,j,t) + cbstep) then
         obj_mask(i,j,tt) = list(4,nn)
         nnewlist = nnewlist + 1
         newlist(1:3,nnewlist) = (/i,j,tt/)
@@ -353,7 +355,7 @@ module modtrack_cell_splitting
     !Look backward
     tt = t - 1
     if (tt >=tstart) then
-      if (obj_mask(i,j,tt)==-2 .and. var_base(i,j,tt) < var_base(i,j,t) + cbstep) then
+      if (obj_mask(i,j,tt)==MARKED_OBJECT .and. var_base(i,j,tt) < var_base(i,j,t) + cbstep) then
         obj_mask(i,j,tt) = list(4,nn)
         nnewlist = nnewlist + 1
         newlist(1:3,nnewlist) = (/i,j,tt/)
@@ -366,6 +368,7 @@ module modtrack_cell_splitting
 
   recursive subroutine newpassive(i, j, t, nr, totnewcells, nendlist, obj_mask, endlist, nractive)
     use tracking_common, only: tstart, nt, nx, ny
+    use tracking_common, only: MARKED_OBJECT
 
     integer(kind=2), intent(in) :: i, j, t
     integer, intent(in) :: totnewcells
@@ -390,7 +393,7 @@ module modtrack_cell_splitting
     jj = j
     tt = t
     if (ii.le.0) ii = nx
-    if (obj_mask(ii,jj,tt)==-2) then
+    if (obj_mask(ii,jj,tt)==MARKED_OBJECT) then
        call newpassive(i=ii, j=jj, t=tt, nr=nr, totnewcells=totnewcells, &
                        nendlist=nendlist, obj_mask=obj_mask, endlist=endlist, &
                        nractive=nractive)
@@ -404,7 +407,7 @@ module modtrack_cell_splitting
     jj = j
     tt = t
     if (ii.gt.nx) ii = 1
-    if (obj_mask(ii,jj,tt)==-2) then
+    if (obj_mask(ii,jj,tt)==MARKED_OBJECT) then
       call newpassive(i=ii,j=jj,t=tt, nr=nr, totnewcells=totnewcells, &
                       nendlist=nendlist, obj_mask=obj_mask, endlist=endlist, &
                       nractive=nractive)
@@ -419,7 +422,7 @@ module modtrack_cell_splitting
     jj = j - 1
     tt = t
     if (jj.le.0) jj = ny
-    if (obj_mask(ii,jj,tt)==-2) then
+    if (obj_mask(ii,jj,tt)==MARKED_OBJECT) then
       call newpassive(i=ii, j=jj, t=tt, nr=nr, totnewcells=totnewcells, &
                       nendlist=nendlist, obj_mask=obj_mask, endlist=endlist, &
                       nractive=nractive)
@@ -434,7 +437,7 @@ module modtrack_cell_splitting
     jj = j + 1
     tt = t
     if (jj.gt.ny) jj = 1
-    if (obj_mask(ii,jj,tt)==-2) then
+    if (obj_mask(ii,jj,tt)==MARKED_OBJECT) then
       call newpassive(i=ii, j=jj, t=tt, nr=nr, totnewcells=totnewcells, &
                       nendlist=nendlist, obj_mask=obj_mask, endlist=endlist, &
                       nractive=nractive)
@@ -449,7 +452,7 @@ module modtrack_cell_splitting
     jj = j
     tt = t + 1
     if (tt <=nt) then
-      if (obj_mask(ii,jj,tt)==-2) then
+      if (obj_mask(ii,jj,tt)==MARKED_OBJECT) then
         call newpassive(i=ii, j=jj, t=tt, nr=nr, totnewcells=totnewcells, &
                         nendlist=nendlist, obj_mask=obj_mask, endlist=endlist, &
                         nractive=nractive)
@@ -465,7 +468,7 @@ module modtrack_cell_splitting
     jj = j
     tt = t - 1
     if (tt>=tstart) then
-      if (obj_mask(ii,jj,tt)==-2) then
+      if (obj_mask(ii,jj,tt)==MARKED_OBJECT) then
         call newpassive(i=ii, j=jj, t=tt, nr=nr, totnewcells=totnewcells, &
                         nendlist=nendlist, obj_mask=obj_mask, endlist=endlist, &
                         nractive=nractive)

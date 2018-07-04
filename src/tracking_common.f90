@@ -29,6 +29,15 @@ module tracking_common
   ! for indexing into %value array of celltype
   integer, parameter :: ibase = 1, itop = 2, ivalue = 3
 
+  !> Marks all points which are outside objects in object mask
+  integer, parameter :: OUTSIDE_OBJECTS = -1
+  !> Marks all points which are inside objects, but not yet processed in object mask
+  integer, parameter :: INSIDE_OBJECTS = 0
+  !> For marking an object currently being worked on in object mask
+  integer, parameter :: MARKED_OBJECT = -2
+  !> For marking an object which has already been processed in object mask
+  integer, parameter :: PROCESSED_OBJECT = -3
+
   integer :: nrel_max
   integer :: nx = -1
   integer :: ny = -1
@@ -54,6 +63,8 @@ module tracking_common
   public createcell, deletecell, firstcell, nextcell
 
   public print_cell_debug
+
+  public MARKED_OBJECT, OUTSIDE_OBJECTS, INSIDE_OBJECTS, PROCESSED_OBJECT
 
   contains
 

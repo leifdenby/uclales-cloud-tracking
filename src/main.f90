@@ -19,6 +19,7 @@ program tracking
   use tracking_common, only: nt, nx, ny
   use tracking_common, only: nrel_max
   use tracking_common, only: tstart, simulation_id
+  use tracking_common, only: INSIDE_OBJECTS, OUTSIDE_OBJECTS
 
   use modtrack, only: dotracking, findparents
   use modtrack, only: fillparentarr
@@ -50,6 +51,9 @@ program tracking
   type(netcdfvar) :: ovar
   integer(kind=2), dimension(:,:,:), allocatable :: var_base, var_top
   integer(kind=2), dimension(:), allocatable :: minbasecloud, minbasetherm
+
+  !> stores object mask and state of processing for a given point, as well as later the unique index of a cell's index that splits
+  !> the cell a given point belongs to
   integer(kind=4), dimension(:,:,:), allocatable :: obj_mask
 
   integer :: var_ivalue  ! indicates which field of `var` we are currently using
@@ -93,9 +97,9 @@ program tracking
     allocate(minbasetherm(tstart:nt))
     minbasetherm = (100.-distzero)/distrange
 
-    obj_mask = -1
+    obj_mask = OUTSIDE_OBJECTS
     where (var(:,:,:,var_ivalue) > i_thermthres)
-      obj_mask = 0
+      obj_mask = INSIDE_OBJECTS
     end where
     call dotracking(tracked_thermals, nthermals,nmincells, obj_mask, var_base, var_top, var(:,:,:,var_ivalue))
   end if
@@ -125,7 +129,7 @@ program tracking
 
       call read_named_input(var(:,:,:,var_ivalue), ivar(icore))
 
-      obj_mask = -1
+      obj_mask = OUTSIDE_OBJECTS
       allocate(minbasecloud(tstart:nt))
       minbasecloud = 0
 
@@ -146,7 +150,7 @@ program tracking
           where (var(:,:,n,3) > i_lwpthres &
               .and. var(:,:,n,var_ivalue) > i_corethres &
               .and. var_base(:,:,n) < minbasecloud(n))
-            obj_mask(:,:,n) = 0
+            obj_mask(:,:,n) = INSIDE_OBJECTS
           end where
         end if
       end do
@@ -161,14 +165,11 @@ program tracking
     ! their cores
     if (lcloud) then
       write (*,*) 'Clouds....'
-      obj_mask = -1
+      obj_mask = OUTSIDE_OBJECTS
       where (var(:,:,:,ilwp) > i_lwpthres)
-        obj_mask = 0
+        obj_mask = INSIDE_OBJECTS
       end where
-      !       do n=1,tstart-1
-      !         obj_mask(:,:,n) = -1
-      !       end do
-      !       call checkframes
+
       if (lcore) then
         call fillparentarr(tracked_cores, minbasecloud, parentarr)
         call dotracking(tracked_clouds, nclouds,nmincells_cloud, obj_mask, var_base, var_top, var(:,:,:,var_ivalue), parentarr)
@@ -197,14 +198,11 @@ program tracking
     call read_named_input(var_top, ivar(var_itop))
 
     !Loop over rain patches
-    obj_mask = -1
+    obj_mask = OUTSIDE_OBJECTS
     where (var(:,:,:,var_ivalue) > i_rwpthres)
-      obj_mask = 0
+      obj_mask = INSIDE_OBJECTS
     end where
-!       do n=1,tstart-1
-!         obj_mask(:,:,n) = -1
-!       end do
-!       call checkframes
+
     call dotracking(tracked_rain, nrains,nmincells, obj_mask, var_base, var_top, var(:,:,:,var_ivalue))
     if (lcloud) then
       if (.not. allocated(minbasecloud)) allocate(minbasecloud(tstart:nt))

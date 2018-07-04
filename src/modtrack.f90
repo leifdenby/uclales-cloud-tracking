@@ -6,6 +6,7 @@ module modtrack
   use tracking_common, only: nrel_max, nt, nx, ny
   use tracking_common, only: tstart
   use tracking_common, only: createcell, deletecell, firstcell, nextcell
+  use tracking_common, only: INSIDE_OBJECTS
 
   use modtrack_cell_splitting, only: splitcell
 
@@ -49,7 +50,7 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
       if(mod(t,10)==0) write (*,'(A,I10,A,I10)') "Time =", t,"  Nr of Cells", ncells
       do  j = 1, ny
         do i = 1, nx
-          if (obj_mask(i,j,t)==0) then
+          if (obj_mask(i,j,t)==INSIDE_OBJECTS) then
              !write (*,*) 'Create a new cell'
             call createcell(cell)
             call newelement(i, j, t, cell, obj_mask, var_base, var_top, cellloc=cellloc)
@@ -128,6 +129,8 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
   !!
   !! @TODO what does `ivalue` mean here?
   subroutine finalizecell(cell, ncells, parentarr, obj_mask, var_base, var_top, var_value, cellloc)
+    use tracking_common, only: PROCESSED_OBJECT
+
     type(celltype), pointer, intent(inout)                   :: cell
     integer, intent(out)                             :: ncells
     type(cellptr), allocatable, dimension(:,:,:), intent(inout), optional :: parentarr
@@ -149,7 +152,7 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
         cell%value(ibase, n) = var_base(cellloc(1,n), cellloc(2,n), cellloc(3,n))
         cell%value(itop, n)  = var_top(cellloc(1,n), cellloc(2,n), cellloc(3,n))
         cell%value(ibase, n) = var_value(cellloc(1,n), cellloc(2,n), cellloc(3,n))
-        obj_mask(cellloc(1,n), cellloc(2,n), cellloc(3,n)) = -1
+        obj_mask(cellloc(1,n), cellloc(2,n), cellloc(3,n)) = PROCESSED_OBJECT
       end do
     end if
     ncells = ncells + 1
@@ -167,6 +170,8 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
   !! TODO: Looking west/east/north/south and truncating the indexing near the
   !! edge is unnecessarily costly, the current element will be checked twice
   recursive subroutine newelement(i, j, t, cell, obj_mask, var_base, var_top, cellloc)
+    use tracking_common, only: MARKED_OBJECT, INSIDE_OBJECTS
+
     integer, intent(in)                                      :: i, j, t
     type(celltype),pointer, intent(inout)                    :: cell
     integer :: ii, jj, tt
@@ -182,14 +187,14 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
     cellloc(2,cell%nelements) = j
     cellloc(3,cell%nelements) = t
 
-    obj_mask(i, j, t) = -2
+    obj_mask(i, j, t) = MARKED_OBJECT
 
     !Look west
     ii = i - 1
     jj = j
     tt = t
     if (ii.le.0) ii = nx
-    if (obj_mask(ii,jj,tt)==0) then
+    if (obj_mask(ii,jj,tt)==INSIDE_OBJECTS) then
       if (var_base(i,j,t) <= var_top(ii,jj,tt) .and. var_top(i,j,t) >= var_base(ii,jj,tt)) then
         call newelement(ii,jj,tt,cell, obj_mask, var_base, var_top, cellloc=cellloc)
       end if
@@ -199,7 +204,7 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
     jj = j
     tt = t
     if (ii.gt.nx) ii = 1
-    if (obj_mask(ii,jj,tt)==0) then
+    if (obj_mask(ii,jj,tt)==INSIDE_OBJECTS) then
       if (var_base(i,j,t) <= var_top(ii,jj,tt) .and. var_top(i,j,t) >= var_base(ii,jj,tt)) then
         call newelement(ii,jj,tt,cell, obj_mask, var_base, var_top, cellloc=cellloc)
       end if
@@ -210,7 +215,7 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
     jj = j - 1
     tt = t
     if (jj.le.0) jj = ny
-    if (obj_mask(ii,jj,tt)==0) then
+    if (obj_mask(ii,jj,tt)==INSIDE_OBJECTS) then
       if (var_base(i,j,t) <= var_top(ii,jj,tt) .and. var_top(i,j,t) >= var_base(ii,jj,tt)) then
         call newelement(ii,jj,tt,cell, obj_mask, var_base, var_top, cellloc=cellloc)
       end if
@@ -221,7 +226,7 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
     jj = j + 1
     tt = t
     if (jj.gt.ny) jj = 1
-    if (obj_mask(ii,jj,tt)==0) then
+    if (obj_mask(ii,jj,tt)==INSIDE_OBJECTS) then
       if (var_base(i,j,t) <= var_top(ii,jj,tt) .and. var_top(i,j,t) >= var_base(ii,jj,tt)) then
         call newelement(ii,jj,tt,cell, obj_mask, var_base, var_top, cellloc=cellloc)
       end if
@@ -232,7 +237,7 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
     jj = j
     tt =t + 1
     if (tt <= nt) then
-      if (obj_mask(ii,jj,tt)==0) then
+      if (obj_mask(ii,jj,tt)==INSIDE_OBJECTS) then
         if (var_base(i,j,t) <= var_top(ii,jj,tt) .and. var_top(i,j,t) >= var_base(ii,jj,tt)) then
           call newelement(ii,jj,tt,cell, obj_mask, var_base, var_top, cellloc=cellloc)
         end if
@@ -243,7 +248,7 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
     jj = j
     tt = t - 1
     if (tt >= tstart) then
-      if (obj_mask(ii,jj,tt)==0) then
+      if (obj_mask(ii,jj,tt)==INSIDE_OBJECTS) then
         if (var_base(i,j,t) <= var_top(ii,jj,tt) .and. var_top(i,j,t) >= var_base(ii,jj,tt)) then
           call newelement(ii,jj,tt,cell, obj_mask, var_base, var_top, cellloc=cellloc)
         end if
@@ -316,6 +321,8 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
   !! above is true, I think this is to always relate to the last timestep that
   !! was deemed to be good for comparison, maybe...
   subroutine checkframes(obj_mask)
+    use tracking_common, only: INSIDE_OBJECTS
+
     integer(kind=4), dimension(:,:,:), intent(inout) :: obj_mask
 
     integer :: t, count1, count2
@@ -325,7 +332,7 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
     write(0,*) 'Check frames'
     count2 = 0
     do t = 2, nt
-      count1 = count(obj_mask(:,:,t)==0)
+      count1 = count(obj_mask(:,:,t)==INSIDE_OBJECTS)
       hlp = float(count1)/float(count2)
       if (count1.eq.0.and.count2.gt.100) then
           write (0,*) 'WARNING: empty frame at t = ',t
