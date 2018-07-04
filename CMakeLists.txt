@@ -9,9 +9,11 @@ FIND_PACKAGE(NetCDF)
 
 add_executable(main
         src/modnetcdf.f90
+        src/constants.f90
         src/tracking_common.f90
         src/modarray.f90
         src/modstatistics.f90
+        src/modtrack_cell_splitting.f90
         src/modtrack.f90
         src/tracking_data.f90
         src/field_loader.f90
@@ -34,7 +36,7 @@ message(${NETCDF_INCLUDES})
 
 
 # first we can indicate the documentation build as an option and set it to ON by default
-option(BUILD_DOC "Build documentation" OFF)
+option(BUILD_DOC "Build documentation" ON)
 
 # check if Doxygen is installed
 find_package(Doxygen)

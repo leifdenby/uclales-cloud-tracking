@@ -12,7 +12,7 @@ module constants
 
   real, parameter :: coremin  = -5.
   real, parameter :: coremax  = 5.
-  real, parameter :: corethres = 0.5
+  real, parameter :: corethres = 0.5  !> buoyancy threshold (in [K]) below which passive outflow is identified
 
   real, parameter :: rwpmin   = -1.
   real, parameter :: rwpmax   = 10.
@@ -27,6 +27,8 @@ module constants
 
   integer, parameter :: nmincells_cloud  = 1
   integer, parameter :: nmincells        = 4
+
+  integer, parameter :: n_minparentel = 10  !< number of cells in a "parent" element necessary to make the parent-child connection
 
 
   !!! Derived variables below
@@ -44,8 +46,10 @@ module constants
   real, parameter :: rwpzero  = 0.5*(rwpmax + rwpmin)
   real, parameter :: rwprange = (rwpmax - rwpmin)/real(huge(1_2))
 
-  real, parameter :: distzero  = 0.5*(distmax + distmin)
-  real, parameter :: distrange = (distmax - distmin)/real(huge(1_2))
+  !real, parameter :: distzero  = 0.5*(distmax + distmin)
+  !real, parameter :: distrange = (distmax - distmin)/real(huge(1_2))
+  real, parameter :: distzero  = 0.0
+  real, parameter :: distrange = 2000.0/real(huge(1_2))
 
   integer(kind=2), parameter :: i_lwpthres   = (lwpthres - lwpzero)/lwprange
   integer(kind=2), parameter :: i_corethres  = (corethres - corezero)/corerange
@@ -61,6 +65,9 @@ module constants
   public rwpzero, rwprange, rwpmin
 
   public i_corethres, i_lwpthres, i_thermthres, i_rwpthres
+
+  ! tracking
+  public n_minparentel
 
   !main
   public rwpthres, lwpthres, corethres, thermthres

@@ -17,7 +17,6 @@ program tracking
   use tracking_common, only: cellptr
   use tracking_common, only: dt, dx, dy
   use tracking_common, only: nt, nx, ny
-  use tracking_common, only: minparentel
   use tracking_common, only: nrel_max
   use tracking_common, only: tstart, simulation_id
 
@@ -128,12 +127,14 @@ program tracking
 
       obj_mask = -1
       allocate(minbasecloud(tstart:nt))
+      minbasecloud = 0
+
       do n=tstart, nt
         ! define minimum cloud-base height as
         !   minbasecloud = z_top_max + z_base_min_half
         ! where
-        !   z_top_max : domain-wide maximum cloud-top height
-        !   z_base_min_half : half of domain-wide minimum cloud-base height (where the cloud-base heigth is defined)
+        !   z_top_max : rescaled domain-wide maximum cloud-top height
+        !   z_base_min_half : half of rescaled domain-wide minimum cloud-base height (where the cloud-base heigth is defined)
         ! (20/06/2018, Leif: it's unclear to me why using z_top_max isn't enough)
         minbasecloud(n) = (maxval(var_top(:,:,n)) + minval(var_base(:,:,n),var_base(:,:,n)>fillvalue_i16) )/2
 
@@ -171,6 +172,9 @@ program tracking
       if (lcore) then
         call fillparentarr(tracked_cores, minbasecloud, parentarr)
         call dotracking(tracked_clouds, nclouds,nmincells_cloud, obj_mask, var_base, var_top, var(:,:,:,var_ivalue), parentarr)
+
+        !call fillparentarr(tracked_clouds, minbasecloud, parentarr)
+        !call findparents(tracked_cores, parentarr, var_base, var_top)
       else
         call dotracking(tracked_clouds, nclouds,nmincells_cloud, obj_mask, var_base, var_top, var(:,:,:,var_ivalue))
       end if
