@@ -37,14 +37,14 @@ module modtrack
     type(cellptr), allocatable, dimension(:,:,:), intent(inout), optional :: parentarr
     integer(kind=4), dimension(:,:,:), intent(inout) :: obj_mask
 
-    integer(kind=2), dimension(:,:), allocatable :: cellloc
+    integer(kind=2), dimension(:,:), allocatable :: current_cell_points_loc
 
     integer :: i, j, t
     write (*,*) '.. entering tracking'
 
-    allocate(cellloc(3,ceiling(min(0.3*(huge(1)-2),0.5*real(nx)*real(ny)*real(nt-tstart)))))
+    allocate(current_cell_points_loc(3,ceiling(min(0.3*(huge(1)-2),0.5*real(nx)*real(ny)*real(nt-tstart)))))
     print *, "Allocating array for storing cell locations"
-print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tstart)
+print *, 'current_cell_points_loc',shape(current_cell_points_loc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tstart)
     nullify(cell)
     do t = tstart, nt
       if(mod(t,10)==0) write (*,'(A,I10,A,I10)') "Time =", t,"  Nr of Cells", ncells
@@ -53,11 +53,11 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
           if (obj_mask(i,j,t)==INSIDE_OBJECTS) then
              !write (*,*) 'Create a new cell'
             call createcell(cell)
-            call newelement(i, j, t, cell, obj_mask, var_base, var_top, cellloc=cellloc)
+            call identify_new_cell(i, j, t, cell, obj_mask, var_base, var_top, current_cell_points_loc=current_cell_points_loc)
             if (cell%nelements >= nmincells) then
               if(cell%nelements> 10000000) write (*,*) '..finalizing cell'
               call finalizecell(cell, ncells, parentarr, obj_mask, var_base, var_top, &
-                                var_value, cellloc=cellloc)
+                                var_value, current_cell_points_loc=current_cell_points_loc)
             else
               call deletecell(cell)
             end if
@@ -66,7 +66,7 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
       end do
     end do
     write (*,*) '.. leaving tracking'
-    deallocate(cellloc)
+    deallocate(current_cell_points_loc)
   end subroutine dotracking
 
   subroutine findparents(cell, parentarr, base, top)
@@ -116,10 +116,10 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
 
   end subroutine findparents
 
-  !> Copy the information from the temporary array `cellloc` into the `cell`
+  !> Copy the information from the temporary array `current_cell_points_loc` into the `cell`
   !> instance's `loc` (location) and `value` attributes.
   !!
-  !! - `cellloc` contains all the positions in space of time of datapoints which
+  !! - `current_cell_points_loc` contains all the positions in space of time of datapoints which
   !! are part of the current cell
   !! - copy into `cell.loc` the location in space of time of each element
   !! - set in `cell.value` the scalar values of each element (which a defined in
@@ -128,7 +128,7 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
   !! cell
   !!
   !! @TODO what does `ivalue` mean here?
-  subroutine finalizecell(cell, ncells, parentarr, obj_mask, var_base, var_top, var_value, cellloc)
+  subroutine finalizecell(cell, ncells, parentarr, obj_mask, var_base, var_top, var_value, current_cell_points_loc)
     use tracking_common, only: PROCESSED_OBJECT
 
     type(celltype), pointer, intent(inout)                   :: cell
@@ -139,20 +139,20 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
     integer(kind=2), dimension(:,:,:), intent(in) :: var_base
     integer(kind=2), dimension(:,:,:), intent(in) :: var_top
     integer(kind=2), dimension(:,:,:), intent(in) :: var_value
-    integer(kind=2), dimension(:,:), intent(in) :: cellloc
+    integer(kind=2), dimension(:,:), intent(in) :: current_cell_points_loc
 
     if (present(parentarr)) then
       call splitcell(cell, ncells, parentarr, obj_mask, var_base, var_top, var_value, &
-                     cellloc=cellloc)
+                     current_cell_points_loc=current_cell_points_loc)
     else
       allocate(cell%loc(3,cell%nelements))
       allocate(cell%value(3,cell%nelements))
-      cell%loc(:,1:cell%nelements) = cellloc(:,1:cell%nelements)
+      cell%loc(:,1:cell%nelements) = current_cell_points_loc(:,1:cell%nelements)
       do n = 1, cell%nelements
-        cell%value(ibase, n) = var_base(cellloc(1,n), cellloc(2,n), cellloc(3,n))
-        cell%value(itop, n)  = var_top(cellloc(1,n), cellloc(2,n), cellloc(3,n))
-        cell%value(ibase, n) = var_value(cellloc(1,n), cellloc(2,n), cellloc(3,n))
-        obj_mask(cellloc(1,n), cellloc(2,n), cellloc(3,n)) = PROCESSED_OBJECT
+        cell%value(ibase, n) = var_base(current_cell_points_loc(1,n), current_cell_points_loc(2,n), current_cell_points_loc(3,n))
+        cell%value(itop, n)  = var_top(current_cell_points_loc(1,n), current_cell_points_loc(2,n), current_cell_points_loc(3,n))
+        cell%value(ibase, n) = var_value(current_cell_points_loc(1,n), current_cell_points_loc(2,n), current_cell_points_loc(3,n))
+        obj_mask(current_cell_points_loc(1,n), current_cell_points_loc(2,n), current_cell_points_loc(3,n)) = PROCESSED_OBJECT
       end do
     end if
     ncells = ncells + 1
@@ -164,28 +164,28 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
   !> the same cell:
   !!
   !! set obj_mask=-2 so that this data-point is not considered twice for multiple
-  !! cells, store the position in space and time into the `cellloc` array and
+  !! cells, store the position in space and time into the `current_cell_points_loc` array and
   !! increment the `nelements` counter on the provided cell
   !!
   !! TODO: Looking west/east/north/south and truncating the indexing near the
   !! edge is unnecessarily costly, the current element will be checked twice
-  recursive subroutine newelement(i, j, t, cell, obj_mask, var_base, var_top, cellloc)
+  recursive subroutine identify_new_cell(i, j, t, cell, obj_mask, var_base, var_top, current_cell_points_loc)
     use tracking_common, only: MARKED_OBJECT, INSIDE_OBJECTS
 
     integer, intent(in)                                      :: i, j, t
     type(celltype),pointer, intent(inout)                    :: cell
     integer :: ii, jj, tt
     integer(kind=4), dimension(:,:,:), intent(inout) :: obj_mask
-    integer(kind=2), dimension(:,:), intent(inout) :: cellloc
+    integer(kind=2), dimension(:,:), intent(inout) :: current_cell_points_loc
 
     integer(kind=2), dimension(:,:,:), intent(in) :: var_base
     integer(kind=2), dimension(:,:,:), intent(in) :: var_top
 
     cell%nelements = cell%nelements + 1
     if (mod(cell%nelements,10000000) == 0) write(*,*) 'Cell element ', cell%nelements
-    cellloc(1,cell%nelements) = i
-    cellloc(2,cell%nelements) = j
-    cellloc(3,cell%nelements) = t
+    current_cell_points_loc(1,cell%nelements) = i
+    current_cell_points_loc(2,cell%nelements) = j
+    current_cell_points_loc(3,cell%nelements) = t
 
     obj_mask(i, j, t) = MARKED_OBJECT
 
@@ -196,7 +196,7 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
     if (ii.le.0) ii = nx
     if (obj_mask(ii,jj,tt)==INSIDE_OBJECTS) then
       if (var_base(i,j,t) <= var_top(ii,jj,tt) .and. var_top(i,j,t) >= var_base(ii,jj,tt)) then
-        call newelement(ii,jj,tt,cell, obj_mask, var_base, var_top, cellloc=cellloc)
+        call identify_new_cell(ii,jj,tt,cell, obj_mask, var_base, var_top, current_cell_points_loc=current_cell_points_loc)
       end if
     end if
     !Look east
@@ -206,7 +206,7 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
     if (ii.gt.nx) ii = 1
     if (obj_mask(ii,jj,tt)==INSIDE_OBJECTS) then
       if (var_base(i,j,t) <= var_top(ii,jj,tt) .and. var_top(i,j,t) >= var_base(ii,jj,tt)) then
-        call newelement(ii,jj,tt,cell, obj_mask, var_base, var_top, cellloc=cellloc)
+        call identify_new_cell(ii,jj,tt,cell, obj_mask, var_base, var_top, current_cell_points_loc=current_cell_points_loc)
       end if
     end if
 
@@ -217,7 +217,7 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
     if (jj.le.0) jj = ny
     if (obj_mask(ii,jj,tt)==INSIDE_OBJECTS) then
       if (var_base(i,j,t) <= var_top(ii,jj,tt) .and. var_top(i,j,t) >= var_base(ii,jj,tt)) then
-        call newelement(ii,jj,tt,cell, obj_mask, var_base, var_top, cellloc=cellloc)
+        call identify_new_cell(ii,jj,tt,cell, obj_mask, var_base, var_top, current_cell_points_loc=current_cell_points_loc)
       end if
     end if
 
@@ -228,7 +228,7 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
     if (jj.gt.ny) jj = 1
     if (obj_mask(ii,jj,tt)==INSIDE_OBJECTS) then
       if (var_base(i,j,t) <= var_top(ii,jj,tt) .and. var_top(i,j,t) >= var_base(ii,jj,tt)) then
-        call newelement(ii,jj,tt,cell, obj_mask, var_base, var_top, cellloc=cellloc)
+        call identify_new_cell(ii,jj,tt,cell, obj_mask, var_base, var_top, current_cell_points_loc=current_cell_points_loc)
       end if
     end if
 
@@ -239,7 +239,7 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
     if (tt <= nt) then
       if (obj_mask(ii,jj,tt)==INSIDE_OBJECTS) then
         if (var_base(i,j,t) <= var_top(ii,jj,tt) .and. var_top(i,j,t) >= var_base(ii,jj,tt)) then
-          call newelement(ii,jj,tt,cell, obj_mask, var_base, var_top, cellloc=cellloc)
+          call identify_new_cell(ii,jj,tt,cell, obj_mask, var_base, var_top, current_cell_points_loc=current_cell_points_loc)
         end if
       end if
     end if
@@ -250,11 +250,11 @@ print *, 'cellloc',shape(cellloc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tst
     if (tt >= tstart) then
       if (obj_mask(ii,jj,tt)==INSIDE_OBJECTS) then
         if (var_base(i,j,t) <= var_top(ii,jj,tt) .and. var_top(i,j,t) >= var_base(ii,jj,tt)) then
-          call newelement(ii,jj,tt,cell, obj_mask, var_base, var_top, cellloc=cellloc)
+          call identify_new_cell(ii,jj,tt,cell, obj_mask, var_base, var_top, current_cell_points_loc=current_cell_points_loc)
         end if
       end if
     end if
-  end subroutine newelement
+  end subroutine identify_new_cell
 
   !> Create a 3D array mapping from all datapoints in space and time to the cell
   !>  associated with each datapoint, but only for cells where the cell's base

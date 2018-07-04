@@ -12,8 +12,72 @@ module modtrack_cell_splitting
 
   contains
 
+  !> Find the parent cell for each element in the current cell and update
+  !> `splitters` and `children` in each. Also creates a number of each
+  !> parent cell which assigned to the last row of `list`. `nr` appears to
+  !> count the number of "child" elements that are split by each cell.
+  !> 
+  !> the cloud mask at given point gets set to the number of splitters
+  subroutine findnrsplitters_new(cell, parentarr, obj_mask, list, nr, nlist, current_cell_points_loc)
+    use modarray, only: increase_array
+
+    type(celltype),  pointer, intent(inout)                       :: cell
+    type(cellptr),   allocatable, dimension(:,:,:), intent(inout) :: parentarr
+    integer(kind=4), dimension(:,:,:), intent(inout)              :: obj_mask
+    integer(kind=2), dimension(:,:), intent(in) :: current_cell_points_loc
+
+    integer, dimension(:,:), intent(inout)   :: list
+    integer, dimension(:), intent(inout)     :: nr
+    integer, intent(inout)                   :: nlist
+
+    integer :: nn, i, j, t, n
+    logical :: lnewparent
+
+    do nn = 1, cell%nelements
+      !write(*,*) 'Find splitter for element',nn,'/',cell%nelements
+      if (mod(nn,1000000) == 0) write(*,*) 'Find splitter for element',nn,'/',cell%nelements
+      i = current_cell_points_loc(1,nn)
+      j = current_cell_points_loc(2,nn)
+      t = current_cell_points_loc(3,nn)
+      ! Is there a parent cell associated with this datapoint?
+      if (associated(parentarr(i,j,t)%p)) then
+        lnewparent = .true.
+        ! Check if we've seen this cell before, i.e. has it be put into
+        ! "cell.splitters" already?
+        do n = 1, cell%nsplitters
+          if (associated(cell%splitters(n)%p,parentarr(i,j,t)%p)) then
+            lnewparent = .false.
+            exit
+          end if
+        end do
+        ! if it's new cell
+        if (lnewparent) then
+          ! add the parent to this cell's "splitters"
+          cell%nsplitters = cell%nsplitters + 1
+          call increase_array(cell%splitters, cell%nsplitters)
+          cell%splitters(cell%nsplitters)%p => parentarr(i,j,t)%p
+
+          ! and the current cell to "children" of the parent cell
+          parentarr(i,j,t)%p%nchildren = parentarr(i,j,t)%p%nchildren + 1
+          call increase_array(parentarr(i,j,t)%p%children, parentarr(i,j,t)%p%nchildren)
+          parentarr(i,j,t)%p%children(parentarr(i,j,t)%p%nchildren)%p => cell
+
+          n = cell%nsplitters
+        end if
+        nlist = nlist + 1
+        obj_mask(i,j,t) = n
+        list(1,nlist) = i
+        list(2,nlist) = j
+        list(3,nlist) = t
+        list(4,nlist) = n
+        nr(n)         = nr(n) + 1
+      end if
+    end do
+  end subroutine findnrsplitters_new
+  
+
   !> Use a parent
-  subroutine splitcell(cell, ncells, parentarr, obj_mask, var_base, var_top, var_value, cellloc)
+  subroutine splitcell(cell, ncells, parentarr, obj_mask, var_base, var_top, var_value, current_cell_points_loc)
     use tracking_common, only: nrel_max
     use tracking_common, only: createcell
     use tracking_common, only: deletecell
@@ -29,7 +93,7 @@ module modtrack_cell_splitting
     integer(kind=2), dimension(:,:,:), intent(in) :: var_base
     integer(kind=2), dimension(:,:,:), intent(in) :: var_top
     integer(kind=2), dimension(:,:,:), intent(in) :: var_value
-    integer(kind=2), dimension(:,:), intent(in) :: cellloc
+    integer(kind=2), dimension(:,:), intent(in) :: current_cell_points_loc
 
     integer, allocatable, dimension(:)     :: maxiter
     type(celltype), pointer                  :: oldcell
@@ -42,6 +106,10 @@ module modtrack_cell_splitting
     ! position indecies, t the time index and n the number of splitters for this
     ! element of the cell
 
+    integer, allocatable, dimension(:,:)   :: split_neighbours_points_loc
+    integer, allocatable, dimension(:)     :: split_neighbours_splitter_index
+    integer, allocatable, dimension(:)     :: n_split_neighbours_points
+
     integer :: print_interval = 1
 
     !print *, "before splitcell"
@@ -49,6 +117,10 @@ module modtrack_cell_splitting
 
     oldcell => cell
     if(cell%nelements> 10000000) write (*,*) 'Begin Splitcell'
+
+    allocate(split_neighbours_points_loc(3,oldcell%nelements))
+    allocate(split_neighbours_splitter_index(oldcell%nelements))
+    allocate(n_split_neighbours_points(oldcell%nelements))
 
     allocate(list(4,oldcell%nelements))
     allocate(newlist(4,oldcell%nelements))
@@ -64,10 +136,10 @@ module modtrack_cell_splitting
     totnewcells = 0
     nr = 0
 
-    tmin = minval(cellloc(3,1:cell%nelements))
-    tmax = maxval(cellloc(3,1:cell%nelements))
+    tmin = minval(current_cell_points_loc(3,1:cell%nelements))
+    tmax = maxval(current_cell_points_loc(3,1:cell%nelements))
     call findnrsplitters(cell=cell, parentarr=parentarr, obj_mask=obj_mask, list=list, &
-                         nr=nr, nlist=nlist, cellloc=cellloc)
+                         nr=nr, nlist=nlist, current_cell_points_loc=current_cell_points_loc)
     if (oldcell%nsplitters >= 2) then
           if(oldcell%nelements> 10000000) then
             write (*,*) 'Split cell in ', cell%nsplitters, ' parts'
@@ -102,12 +174,16 @@ module modtrack_cell_splitting
           if (nendlist < oldcell%nelements) then
             nlist = nendlist
             loop: do n = 1, oldcell%nelements
-              if (obj_mask(cellloc(1,n), cellloc(2,n), cellloc(3,n)) == MARKED_OBJECT) then !Found new outflow region
+              if (obj_mask(current_cell_points_loc(1,n),&
+                           current_cell_points_loc(2,n),&
+                           current_cell_points_loc(3,n)&
+                          ) == MARKED_OBJECT) then !Found new outflow region
       !             npassive = npassive + 1
                 totnewcells = totnewcells + 1
                 nr(totnewcells) = 0
                 nractive = -1
-                call newpassive(i=cellloc(1,n), j=cellloc(2,n), t=cellloc(3,n), nr=nr, totnewcells=totnewcells, &
+                call newpassive(i=current_cell_points_loc(1,n), j=current_cell_points_loc(2,n), t=current_cell_points_loc(3,n), &
+                                nr=nr, totnewcells=totnewcells, &
                                 nendlist=nendlist, obj_mask=obj_mask, endlist=endlist, nractive=nractive)
                 if (nractive > 0) then
                   endlist(4,1+nendlist-nr(totnewcells):nendlist) = nractive
@@ -198,12 +274,12 @@ module modtrack_cell_splitting
      end select
      allocate(cell%loc(3,cell%nelements))
       allocate(cell%value(3,cell%nelements))
-      cell%loc(:,1:cell%nelements) = cellloc(:,1:cell%nelements)
+      cell%loc(:,1:cell%nelements) = current_cell_points_loc(:,1:cell%nelements)
       do n = 1, cell%nelements
-        cell%value(ibase, n) = var_base(cellloc(1,n), cellloc(2,n), cellloc(3,n))
-        cell%value(itop, n) = var_top(cellloc(1,n), cellloc(2,n), cellloc(3,n))
-        cell%value(ivalue, n) = var_value(cellloc(1,n), cellloc(2,n), cellloc(3,n))
-        obj_mask(cellloc(1,n), cellloc(2,n), cellloc(3,n)) = PROCESSED_OBJECT
+        cell%value(ibase, n) = var_base(current_cell_points_loc(1,n), current_cell_points_loc(2,n), current_cell_points_loc(3,n))
+        cell%value(itop, n) = var_top(current_cell_points_loc(1,n), current_cell_points_loc(2,n), current_cell_points_loc(3,n))
+        cell%value(ivalue, n) = var_value(current_cell_points_loc(1,n), current_cell_points_loc(2,n), current_cell_points_loc(3,n))
+        obj_mask(current_cell_points_loc(1,n), current_cell_points_loc(2,n), current_cell_points_loc(3,n)) = PROCESSED_OBJECT
       end do
 
     end if
@@ -218,13 +294,13 @@ module modtrack_cell_splitting
   !> count the number of "child" elements that are split by each cell.
   !> 
   !> the cloud mask at given point gets set to the number of splitters
-  subroutine findnrsplitters(cell, parentarr, obj_mask, list, nr, nlist, cellloc)
+  subroutine findnrsplitters(cell, parentarr, obj_mask, list, nr, nlist, current_cell_points_loc)
     use modarray, only: increase_array
 
     type(celltype),  pointer, intent(inout)                       :: cell
     type(cellptr),   allocatable, dimension(:,:,:), intent(inout) :: parentarr
     integer(kind=4), dimension(:,:,:), intent(inout)              :: obj_mask
-    integer(kind=2), dimension(:,:), intent(in) :: cellloc
+    integer(kind=2), dimension(:,:), intent(in) :: current_cell_points_loc
 
     integer, dimension(:,:), intent(inout)   :: list
     integer, dimension(:), intent(inout)     :: nr
@@ -236,9 +312,9 @@ module modtrack_cell_splitting
     do nn = 1, cell%nelements
       !write(*,*) 'Find splitter for element',nn,'/',cell%nelements
       if (mod(nn,1000000) == 0) write(*,*) 'Find splitter for element',nn,'/',cell%nelements
-      i = cellloc(1,nn)
-      j = cellloc(2,nn)
-      t = cellloc(3,nn)
+      i = current_cell_points_loc(1,nn)
+      j = current_cell_points_loc(2,nn)
+      t = current_cell_points_loc(3,nn)
       ! Is there a parent cell associated with this datapoint?
       if (associated(parentarr(i,j,t)%p)) then
         lnewparent = .true.
