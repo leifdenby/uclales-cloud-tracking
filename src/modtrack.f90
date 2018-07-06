@@ -54,8 +54,8 @@ print *, 'current_cell_points_loc',shape(current_cell_points_loc),0.3*huge(1), 0
              !write (*,*) 'Create a new cell'
             call createcell(cell)
             call identify_new_cell(i, j, t, cell, obj_mask, var_base, var_top, current_cell_points_loc=current_cell_points_loc)
-            if (cell%nelements >= nmincells) then
-              if(cell%nelements> 10000000) write (*,*) '..finalizing cell'
+            if (cell%n_points >= nmincells) then
+              if(cell%n_points> 10000000) write (*,*) '..finalizing cell'
               call finalizecell(cell, ncells, parentarr, obj_mask, var_base, var_top, &
                                 var_value, current_cell_points_loc=current_cell_points_loc)
             else
@@ -82,7 +82,7 @@ print *, 'current_cell_points_loc',shape(current_cell_points_loc),0.3*huge(1), 0
     do
       if (iret == -1) exit
       count = count +1
-      do nn = 1, cell%nelements
+      do nn = 1, cell%n_points
         i = cell%loc(1,nn)
         j = cell%loc(2,nn)
         t = cell%loc(3,nn)
@@ -145,10 +145,10 @@ print *, 'current_cell_points_loc',shape(current_cell_points_loc),0.3*huge(1), 0
       call splitcell(cell, ncells, parentarr, obj_mask, var_base, var_top, var_value, &
                      current_cell_points_loc=current_cell_points_loc)
     else
-      allocate(cell%loc(3,cell%nelements))
-      allocate(cell%value(3,cell%nelements))
-      cell%loc(:,1:cell%nelements) = current_cell_points_loc(:,1:cell%nelements)
-      do n = 1, cell%nelements
+      allocate(cell%loc(3,cell%n_points))
+      allocate(cell%value(3,cell%n_points))
+      cell%loc(:,1:cell%n_points) = current_cell_points_loc(:,1:cell%n_points)
+      do n = 1, cell%n_points
         cell%value(ibase, n) = var_base(current_cell_points_loc(1,n), current_cell_points_loc(2,n), current_cell_points_loc(3,n))
         cell%value(itop, n)  = var_top(current_cell_points_loc(1,n), current_cell_points_loc(2,n), current_cell_points_loc(3,n))
         cell%value(ibase, n) = var_value(current_cell_points_loc(1,n), current_cell_points_loc(2,n), current_cell_points_loc(3,n))
@@ -165,12 +165,12 @@ print *, 'current_cell_points_loc',shape(current_cell_points_loc),0.3*huge(1), 0
   !!
   !! set obj_mask=-2 so that this data-point is not considered twice for multiple
   !! cells, store the position in space and time into the `current_cell_points_loc` array and
-  !! increment the `nelements` counter on the provided cell
+  !! increment the `n_points` counter on the provided cell
   !!
   !! TODO: Looking west/east/north/south and truncating the indexing near the
   !! edge is unnecessarily costly, the current element will be checked twice
   recursive subroutine identify_new_cell(i, j, t, cell, obj_mask, var_base, var_top, current_cell_points_loc)
-    use tracking_common, only: MARKED_OBJECT, INSIDE_OBJECTS
+    use tracking_common, only: UNCLASSIFIED_IN_OBJECT, INSIDE_OBJECTS
 
     integer, intent(in)                                      :: i, j, t
     type(celltype),pointer, intent(inout)                    :: cell
@@ -181,13 +181,13 @@ print *, 'current_cell_points_loc',shape(current_cell_points_loc),0.3*huge(1), 0
     integer(kind=2), dimension(:,:,:), intent(in) :: var_base
     integer(kind=2), dimension(:,:,:), intent(in) :: var_top
 
-    cell%nelements = cell%nelements + 1
-    if (mod(cell%nelements,10000000) == 0) write(*,*) 'Cell element ', cell%nelements
-    current_cell_points_loc(1,cell%nelements) = i
-    current_cell_points_loc(2,cell%nelements) = j
-    current_cell_points_loc(3,cell%nelements) = t
+    cell%n_points = cell%n_points + 1
+    if (mod(cell%n_points,10000000) == 0) write(*,*) 'Cell element ', cell%n_points
+    current_cell_points_loc(1,cell%n_points) = i
+    current_cell_points_loc(2,cell%n_points) = j
+    current_cell_points_loc(3,cell%n_points) = t
 
-    obj_mask(i, j, t) = MARKED_OBJECT
+    obj_mask(i, j, t) = UNCLASSIFIED_IN_OBJECT
 
     !Look west
     ii = i - 1
@@ -291,11 +291,11 @@ print *, 'current_cell_points_loc',shape(current_cell_points_loc),0.3*huge(1), 0
     iret = firstcell(cell)
     do
       if (iret == -1) exit
-      if (cell%nelements > n_minparentel) then
-        print *, minval(cell%value(ibase,1:cell%nelements)), minbase(cell%loc(3,1))
+      if (cell%n_points > n_minparentel) then
+        print *, minval(cell%value(ibase,1:cell%n_points)), minbase(cell%loc(3,1))
 
-        if (minval(cell%value(ibase,1:cell%nelements))< minbase(cell%loc(3,1))) then
-          do n = 1, cell%nelements
+        if (minval(cell%value(ibase,1:cell%n_points))< minbase(cell%loc(3,1))) then
+          do n = 1, cell%n_points
             parentarr(cell%loc(1,n),cell%loc(2,n),cell%loc(3,n))%p => cell
             if (present(base)) then
               base(cell%loc(1,n),cell%loc(2,n),cell%loc(3,n))        =  cell%value(ibase,n)

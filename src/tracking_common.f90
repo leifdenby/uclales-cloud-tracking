@@ -9,7 +9,7 @@ module tracking_common
 
   type :: celltype
     integer :: id
-    integer :: nelements
+    integer :: n_points
     integer(kind=2), allocatable, dimension(:,:)     :: loc
     integer(kind=2), allocatable, dimension (:,:)       :: value
     integer                                  :: nsplitters
@@ -34,7 +34,7 @@ module tracking_common
   !> Marks all points which are inside objects, but not yet processed in object mask
   integer, parameter :: INSIDE_OBJECTS = 0
   !> For marking an object currently being worked on in object mask
-  integer, parameter :: MARKED_OBJECT = -2
+  integer, parameter :: UNCLASSIFIED_IN_OBJECT = -2
   !> For marking an object which has already been processed in object mask
   integer, parameter :: PROCESSED_OBJECT = -3
 
@@ -44,7 +44,6 @@ module tracking_common
   integer :: nt = -1
   integer :: tstart = -1
   real    :: dx, dy, dt
-  integer(kind=2)    :: cbstep
   logical, parameter :: ldebug = .false., lsiblings = .false.
 
   character(100) :: simulation_id
@@ -58,20 +57,19 @@ module tracking_common
   public nt, nx, ny
   public nrel_max
   public tstart
-  public cbstep
 
   public createcell, deletecell, firstcell, nextcell
 
   public print_cell_debug
 
-  public MARKED_OBJECT, OUTSIDE_OBJECTS, INSIDE_OBJECTS, PROCESSED_OBJECT
+  public UNCLASSIFIED_IN_OBJECT, OUTSIDE_OBJECTS, INSIDE_OBJECTS, PROCESSED_OBJECT
 
   contains
 
   subroutine print_cell_debug(cell)
     type(celltype), pointer, intent(in) :: cell
     print *, ""
-    print *, "cell id=", cell%id, "nelements=", cell%nelements
+    print *, "cell id=", cell%id, "n_points=", cell%n_points
     print *, "nsplitters=", cell%nsplitters
     print *, "nparents=", cell%nparents
     print *, "nchildren=", cell%nchildren
@@ -102,7 +100,7 @@ module tracking_common
       cell%next     => null()
     end if
 
-    cell%nelements = 0
+    cell%n_points = 0
     cell%nchildren = 0
     cell%nsplitters= 0
     cell%nparents  = 0

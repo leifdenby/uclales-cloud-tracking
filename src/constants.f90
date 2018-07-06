@@ -12,7 +12,7 @@ module constants
 
   real, parameter :: coremin  = -5.
   real, parameter :: coremax  = 5.
-  real, parameter :: corethres = 0.5  !> buoyancy threshold (in [K]) below which passive outflow is identified
+  real, parameter :: corethres = 0.6  !> buoyancy threshold (in [K]) below which passive outflow is identified
 
   real, parameter :: rwpmin   = -1.
   real, parameter :: rwpmax   = 10.
@@ -29,6 +29,9 @@ module constants
   integer, parameter :: nmincells        = 4
 
   integer, parameter :: n_minparentel = 10  !< number of cells in a "parent" element necessary to make the parent-child connection
+
+  ! parameters controlling growth of regions when doing splitting
+  integer, parameter :: n_growth_steps_max = 5
 
 
   !!! Derived variables below
@@ -56,7 +59,7 @@ module constants
   integer(kind=2), parameter :: i_thermthres = (thermthres - thermzero)/thermrange
   integer(kind=2), parameter :: i_rwpthres   = (rwpthres - rwpzero)/rwprange
 
-  real, parameter :: cbstep = (300.)/distrange
+  integer(kind=2)    :: cbstep = (300.)/distrange
 
   public nchunk
   public distzero, distrange, distmin
@@ -68,6 +71,9 @@ module constants
 
   ! tracking
   public n_minparentel
+
+  ! splitting
+  public n_growth_steps_max
 
   !main
   public rwpthres, lwpthres, corethres, thermthres

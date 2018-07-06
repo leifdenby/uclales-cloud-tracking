@@ -73,8 +73,8 @@ real :: time
     do
       if (iret == -1) exit
       n = n + 1
-      tmin = minval(cell%loc(3,1:cell%nelements))
-      tmax = maxval(cell%loc(3,1:cell%nelements))
+      tmin = minval(cell%loc(3,1:cell%n_points))
+      tmax = maxval(cell%loc(3,1:cell%n_points))
       tlength(n) = tmax - tmin + 1
       iret = nextcell(cell)
     end do
@@ -137,8 +137,8 @@ real :: time
         iret = firstcell(cell)
         do
           if (iret == -1) exit
-          tmin = minval(cell%loc(3,1:cell%nelements))
-          tmax = maxval(cell%loc(3,1:cell%nelements))
+          tmin = minval(cell%loc(3,1:cell%n_points))
+          tmax = maxval(cell%loc(3,1:cell%n_points))
           if (tmax - tmin + 1 >= bucket_min(n) .and. tmax - tmin + 1 <= bucket_max(n)) then
             nn = nn + 1
             if (mod(nn,1000)==0) then
@@ -159,7 +159,7 @@ real :: time
 !             jcenter = 0
 !             npts  = 0
 
-            do nel = 1, cell%nelements
+            do nel = 1, cell%n_points
               i = cell%loc(1,nel)
               j = cell%loc(2,nel)
               t = cell%loc(3,nel)
@@ -365,8 +365,8 @@ real :: time
         iret = firstcell(cell)
         do
           if (iret == -1) exit
-          tmin = minval(cell%loc(3,1:cell%nelements))
-          tmax = maxval(cell%loc(3,1:cell%nelements))
+          tmin = minval(cell%loc(3,1:cell%n_points))
+          tmax = maxval(cell%loc(3,1:cell%n_points))
           if (tmax - tmin + 1 >= bucket_min(n) .and. tmax - tmin + 1 <= bucket_max(n)) then
             nn = nn + 1
 !             if (mod(nn,1000)==0) then
@@ -414,8 +414,8 @@ real :: time
         iret = firstcell(cell)
         do
           if (iret == -1) exit
-          tmin = minval(cell%loc(3,1:cell%nelements))
-          tmax = maxval(cell%loc(3,1:cell%nelements))
+          tmin = minval(cell%loc(3,1:cell%n_points))
+          tmax = maxval(cell%loc(3,1:cell%n_points))
           if (tmax - tmin + 1 >= bucket_min(n) .and. tmax - tmin + 1 <= bucket_max(n)) then
             nn = nn + 1
             nrelatives(nn)  = cell%nchildren
@@ -460,8 +460,8 @@ real :: time
 !
           do
             if (iret == -1) exit
-            tmin = minval(cell%loc(3,1:cell%nelements))
-            tmax = maxval(cell%loc(3,1:cell%nelements))
+            tmin = minval(cell%loc(3,1:cell%n_points))
+            tmax = maxval(cell%loc(3,1:cell%n_points))
             if (tmax - tmin + 1 >= bucket_min(n) .and. tmax - tmin + 1 <= bucket_max(n)) then
               nn = nn + 1
               nrelatives(nn)  = cell%cloudtype
@@ -490,8 +490,8 @@ real :: time
           iret = firstcell(cell)
           do
             if (iret == -1) exit
-            tmin = minval(cell%loc(3,1:cell%nelements))
-            tmax = maxval(cell%loc(3,1:cell%nelements))
+            tmin = minval(cell%loc(3,1:cell%n_points))
+            tmax = maxval(cell%loc(3,1:cell%n_points))
             if (tmax - tmin + 1 >= bucket_min(n) .and. tmax - tmin + 1 <= bucket_max(n)) then
               nn = nn + 1
               nrelatives(nn)  = cell%cloudsystemnr
@@ -532,8 +532,8 @@ real :: time
         iret = firstcell(cell)
         do
           if (iret == -1) exit
-          tmin = minval(cell%loc(3,1:cell%nelements))
-          tmax = maxval(cell%loc(3,1:cell%nelements))
+          tmin = minval(cell%loc(3,1:cell%n_points))
+          tmax = maxval(cell%loc(3,1:cell%n_points))
           if (tmax - tmin + 1 >= bucket_min(n) .and. tmax - tmin + 1 <= bucket_max(n)) then
             nn = nn + 1
             nrelatives(nn)  = cell%nsplitters
