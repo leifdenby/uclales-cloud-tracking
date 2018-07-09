@@ -38,7 +38,6 @@ module tracking_common
   !> For marking an object which has already been processed in object mask
   integer, parameter :: PROCESSED_OBJECT = -3
 
-  integer :: nrel_max
   integer :: nx = -1
   integer :: ny = -1
   integer :: nt = -1
@@ -55,7 +54,6 @@ module tracking_common
   public celltype, cellptr
   public dt, dx, dy
   public nt, nx, ny
-  public nrel_max
   public tstart
 
   public createcell, deletecell, firstcell, nextcell

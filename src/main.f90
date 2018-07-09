@@ -17,7 +17,6 @@ program tracking
   use tracking_common, only: cellptr
   use tracking_common, only: dt, dx, dy
   use tracking_common, only: nt, nx, ny
-  use tracking_common, only: nrel_max
   use tracking_common, only: tstart, simulation_id
   use tracking_common, only: INSIDE_OBJECTS, OUTSIDE_OBJECTS
 
@@ -360,7 +359,6 @@ program tracking
         call get_command_argument(4,criterion)
 
         nvar = 2
-        nrel_max = 0
         vlength = len_trim(criterion)
         lb = 1
         ub = -1

@@ -4,7 +4,7 @@ module modtrack_cell_splitting
 
   implicit none
 
-  public splitcell
+  public splitcell, find_split_regions
 
   private
 
@@ -19,12 +19,15 @@ module modtrack_cell_splitting
   contains
 
 
+  !> Expand "active" regions while ensuring that the cloud-base height doesn't change rapidly
+  !>
+  !> Steps:
+  !> 1. start from list of points (and parent indexes) which mark the region
+  !> 2. use the obj_mask to grow
+  !> 3. return the list points which are the union of the initial region and grown into region
   subroutine grow_split_regions(cell, var_base, &
         obj_mask, points, num_points, num_points_per_new_cell &
         )
-    ! 1. start from list of points (and parent indexes) which mark the region
-    ! 2. use the obj_mask to grow
-    ! 3. return the list points which are the union of the initial region and grown into region
     use constants, only: n_minparentel, n_growth_steps_min
 
     type(celltype), pointer, intent(in)   :: cell
@@ -103,6 +106,7 @@ module modtrack_cell_splitting
     !print *, "expanded from", num_points_before_expansion, "to", num_points, "points"
   end subroutine grow_split_regions
 
+
   !> For any points which were part of the oldcell but haven't been consumed by
   !> the regions-split-by-parents (or what these have expanded into) these points
   !> will be added to so-called "passive" cells
@@ -152,7 +156,6 @@ module modtrack_cell_splitting
           num_passive_points=num_passive_points, num_new_cells=num_new_cells)
 
         if (num_passive_points > MIN_NUM_POINTS_PASSIVE_CELL) then
-          print *, "..", num_passive_points
           new_points(:,num_new_points+1:num_new_points+num_passive_points) = passive_points(:,1:num_passive_points)
           num_points_per_new_cell(num_new_cells) = num_passive_points
           num_new_points = num_new_points + num_passive_points
@@ -162,14 +165,13 @@ module modtrack_cell_splitting
       end if
     end do
 
-
-    print *, "num passive cells added", num_new_cells - oldcell%nsplitters
-
+    !print *, "num passive cells added", num_new_cells - oldcell%nsplitters
   end subroutine
 
+
   !> Use a parent
-  subroutine splitcell(cell, ncells, parentarr, obj_mask, var_base, var_top, var_value, current_cell_points_loc)
-    use tracking_common, only: nrel_max
+  subroutine splitcell(cell, ncells, obj_mask, var_base, var_top, var_value, &
+                       current_cell_points_loc, new_points, num_new_points, num_points_per_new_cell)
     use tracking_common, only: createcell
     use tracking_common, only: deletecell
     use tracking_common, only: print_cell_debug
@@ -178,31 +180,28 @@ module modtrack_cell_splitting
 
     type(celltype), pointer, intent(inout)   :: cell
     integer, intent(inout)           :: ncells
-    type(cellptr), allocatable, dimension(:,:,:), intent(inout) :: parentarr
     integer(kind=4), dimension(:,:,:), intent(inout) :: obj_mask
 
     integer(kind=2), dimension(:,:,:), intent(in) :: var_base
     integer(kind=2), dimension(:,:,:), intent(in) :: var_top
     integer(kind=2), dimension(:,:,:), intent(in) :: var_value
     integer(kind=2), dimension(:,:), intent(in) :: current_cell_points_loc
-
-    type(celltype), pointer                  :: oldcell
-    type(cellptr), allocatable, dimension(:) :: newcells
-    integer :: n, tmin, tmax
-    integer :: nn
-    !> Counter for the number of cells we have after splitting
-    integer :: num_new_cells
-
     !> for storing the points of the new split regions (including points grown into by expand_regions
     !> below)
     !> list has shape (4, cell%n_points) and stores (i,j,t,n) where i,j and the
     !> position indecies, t the time index and n the number of splitters for this
     !> element of the cell
-    integer, allocatable, dimension(:,:)  :: new_points
+    integer, intent(inout), dimension(:,:)  :: new_points
     !> number of points which have been allocated into `new_points`
-    integer :: num_new_points
+    integer, intent(inout) :: num_new_points
+    integer, intent(inout), dimension(:)    :: num_points_per_new_cell
 
-    integer, allocatable, dimension(:)    :: num_points_per_new_cell
+    type(celltype), pointer                  :: oldcell
+    type(cellptr), allocatable, dimension(:) :: newcells
+    integer :: n
+    integer :: nn
+    !> Counter for the number of cells we have after splitting
+    integer :: num_new_cells
 
     integer, allocatable, dimension(:) :: cell_point_index_offset
 
@@ -210,158 +209,117 @@ module modtrack_cell_splitting
 
     !print *, "before splitcell"
     !call print_cell_debug(cell)
+    !if(cell%n_points> 10000000) write (*,*) 'Begin Splitcell'
+    !write (*,*) 'Split cell with', cell%n_points, 'points in', cell%nsplitters, ' parts'
 
     oldcell => cell
-    if(cell%n_points> 10000000) write (*,*) 'Begin Splitcell'
 
-    ! allocate storage for new points, for storing how many points each parent cell will have and
-    ! counter to indicate how much of storage has been used
-    allocate(new_points(4,cell%n_points))
-    allocate(num_points_per_new_cell(cell%n_points/2))
-    num_new_points = 0
-    new_points(:,:) = -1
-    num_points_per_new_cell(:) = -1
+    ! we start of with as many total cells as there are splitting cells, these will be the
+    ! active ones
+    num_new_cells = oldcell%nsplitters
 
+    !call grow_split_regions(cell=cell, var_base=var_base, &
+                     !obj_mask=obj_mask, points=new_points, num_points=num_new_points, &
+                     !num_points_per_new_cell=num_points_per_new_cell &
+    !)
 
-    tmin = minval(current_cell_points_loc(3,1:cell%n_points))
-    tmax = maxval(current_cell_points_loc(3,1:cell%n_points))
-
-    call find_split_regions(current_cell_points_loc=current_cell_points_loc, &
-                            cell=oldcell, parentarr=parentarr, obj_mask=obj_mask, &
-                            points=new_points, num_points=num_new_points, &
-                            num_points_per_new_cell=num_points_per_new_cell  &
-                           )
-
-    if (oldcell%nsplitters >= 2) then
-      !write (*,*) 'Split cell with', cell%n_points, 'points in', cell%nsplitters, ' parts'
-
-      ! we start of with as many total cells as there are splitting cells, these will be the
-      ! active ones
-      num_new_cells = oldcell%nsplitters
-
-      call grow_split_regions(cell=cell, var_base=var_base, &
-                       obj_mask=obj_mask, points=new_points, num_points=num_new_points, &
-                       num_points_per_new_cell=num_points_per_new_cell &
-      )
-
-      if (num_new_points < oldcell%n_points) then
-        call create_cells_for_points_outside_expanded_regions(&
-               oldcell=oldcell, obj_mask=obj_mask, &
-               current_cell_points_loc=current_cell_points_loc, &
-               num_new_cells=num_new_cells, &
-               num_points_per_new_cell=num_points_per_new_cell, &
-               new_points=new_points, num_new_points=num_new_points)
-      end if
-
-      ! allocatate storage for all new cells, active + passive
-      allocate(newcells(num_new_cells))
-
-      if (num_new_points > oldcell%n_points) then
-         print *, "New cells from split cell have more points than original cell!"
-         call exit(-1)
-      endif
-
-      ! allocate datastructures for storing new active cells
-      do n = 1, oldcell%nsplitters
-        !'Create and fill new active cell', n, '/', oldcell%nsplitters, "with", num_points_per_new_cell(n)
-
-        ! this new active cell is split by one parent cell, which is the same parent cell as the old field was split by
-        parent_splitting_cell => oldcell%splitters(n)%p
-
-        call createcell(cell)
-        newcells(n)%p => cell
-        cell%nsplitters = 1
-        allocate(cell%splitters(1))
-        cell%splitters(1)%p => parent_splitting_cell
-        cell%cloudtype = 4
-
-        ! this parent splitting cell now only has one child cell
-        parent_splitting_cell%nchildren = 1
-        deallocate(parent_splitting_cell%children)
-        allocate(parent_splitting_cell%children(1))
-        parent_splitting_cell%children(1)%p => cell
-      end do
-
-      ! the passive cells will be the extra ones after we've added the number of "active" ones,
-      ! add these now
-      do n = oldcell%nsplitters + 1, num_new_cells
-        call createcell(cell)
-        newcells(n)%p => cell
-        cell%cloudtype = 3
-      end do
-
-  ! 2018/07/09 (Leif): there is some old code here related to "siblings", unsure what this is. Seems incomplete
-  !
-  !       if (lsiblings) then
-  !             nrel_max = max(nrel_max, num_new_cells)
-  !
-  !       !Add the new cells to each other as siblings
-  !         do n = 1, num_new_cells
-  ! !           newcells(n)%p%nsiblings = num_new_cells -1
-  !           allocate(newcells(n)%p%siblings(num_new_cells -1))
-  !           nnn = 0
-  !           do nn = 1, num_new_cells
-  !             if (n /= nn) then
-  !               nnn = nnn + 1
-  !               newcells(n)%p%siblings(nnn)%p => newcells(nn)%p
-  !             end if
-  !           end do
-  !         end do
-  !       end if
-
-      !Allocate the arrays
-      totcloudsystemnr = totcloudsystemnr + 1
-      !print *, "creating output for a total of", num_new_cells, "new cells"
-      do n = 1,num_new_cells
-        !write (*,*) 'Create split cell nr ', n,'/',num_new_cells, 'with',num_points_per_new_cell(n),'elements'
-        newcells(n)%p%n_points = num_points_per_new_cell(n)
-        newcells(n)%p%cloudsystemnr = totcloudsystemnr
-        allocate(newcells(n)%p%loc(3,num_points_per_new_cell(n)))
-        allocate(newcells(n)%p%value(3,num_points_per_new_cell(n)))
-      end do
-
-      allocate(cell_point_index_offset(num_new_cells))
-      cell_point_index_offset(:) = 0
-      do n = 1, num_new_points
-        !if (mod(n,1000000)==0) write (*,*) 'Fill new cells ', n,'/', num_new_points
-
-        nn = new_points(4,n)
-        cell_point_index_offset(nn) = cell_point_index_offset(nn) + 1
-        newcells(nn)%p%loc(:,cell_point_index_offset(nn)) = new_points(1:3,n)
-        newcells(nn)%p%value(ibase,cell_point_index_offset(nn)) = var_base(new_points(1,n),new_points(2,n),new_points(3,n))
-        newcells(nn)%p%value(itop,cell_point_index_offset(nn)) = var_top(new_points(1,n),new_points(2,n),new_points(3,n))
-        newcells(nn)%p%value(ivalue,cell_point_index_offset(nn)) = var_value(new_points(1,n),new_points(2,n),new_points(3,n))
-      end do
-
-
-      !Point at final new cell
-      cell => newcells(num_new_cells)%p
-      do n = 1,num_new_cells - 1
-        ncells = ncells + 1
-        newcells(n)%p%id = ncells
-      end do
-      !Remove the original cell
-      if(oldcell%n_points> 10000000) write (*,*) 'Split cell completed'
-      call deletecell(oldcell)
-    else
-     cell => oldcell
-     select case (cell%nsplitters)
-     case (0)
-       cell%cloudtype = 1
-     case (1)
-       cell%cloudtype = 2
-     end select
-      allocate(cell%loc(3,cell%n_points))
-      allocate(cell%value(3,cell%n_points))
-      cell%loc(:,1:cell%n_points) = current_cell_points_loc(:,1:cell%n_points)
-      do n = 1, cell%n_points
-        cell%value(ibase, n) = var_base(current_cell_points_loc(1,n), current_cell_points_loc(2,n), current_cell_points_loc(3,n))
-        cell%value(itop, n) = var_top(current_cell_points_loc(1,n), current_cell_points_loc(2,n), current_cell_points_loc(3,n))
-        cell%value(ivalue, n) = var_value(current_cell_points_loc(1,n), current_cell_points_loc(2,n), current_cell_points_loc(3,n))
-        obj_mask(current_cell_points_loc(1,n), current_cell_points_loc(2,n), current_cell_points_loc(3,n)) = PROCESSED_OBJECT
-      end do
-
+    if (num_new_points < oldcell%n_points) then
+      call create_cells_for_points_outside_expanded_regions(&
+             oldcell=oldcell, obj_mask=obj_mask, &
+             current_cell_points_loc=current_cell_points_loc, &
+             num_new_cells=num_new_cells, &
+             num_points_per_new_cell=num_points_per_new_cell, &
+             new_points=new_points, num_new_points=num_new_points)
     end if
+
+    ! allocatate storage for all new cells, active + passive
+    allocate(newcells(num_new_cells))
+
+    if (num_new_points > oldcell%n_points) then
+       print *, "New cells from split cell have more points than original cell!"
+       call exit(-1)
+    endif
+
+    ! allocate datastructures for storing new active cells
+    do n = 1, oldcell%nsplitters
+      !'Create and fill new active cell', n, '/', oldcell%nsplitters, "with", num_points_per_new_cell(n)
+
+      ! this new active cell is split by one parent cell, which is the same parent cell as the old field was split by
+      parent_splitting_cell => oldcell%splitters(n)%p
+
+      call createcell(cell)
+      newcells(n)%p => cell
+      cell%nsplitters = 1
+      allocate(cell%splitters(1))
+      cell%splitters(1)%p => parent_splitting_cell
+      cell%cloudtype = 4
+
+      ! this parent splitting cell now only has one child cell
+      parent_splitting_cell%nchildren = 1
+      deallocate(parent_splitting_cell%children)
+      allocate(parent_splitting_cell%children(1))
+      parent_splitting_cell%children(1)%p => cell
+    end do
+
+    ! the passive cells will be the extra ones after we've added the number of "active" ones,
+    ! add these now
+    do n = oldcell%nsplitters + 1, num_new_cells
+      call createcell(cell)
+      newcells(n)%p => cell
+      cell%cloudtype = 3
+    end do
+
+! 2018/07/09 (Leif): there is some old code here related to "siblings", unsure what this is. Seems incomplete
+!
+!       !Add the new cells to each other as siblings
+!         do n = 1, num_new_cells
+! !           newcells(n)%p%nsiblings = num_new_cells -1
+!           allocate(newcells(n)%p%siblings(num_new_cells -1))
+!           nnn = 0
+!           do nn = 1, num_new_cells
+!             if (n /= nn) then
+!               nnn = nnn + 1
+!               newcells(n)%p%siblings(nnn)%p => newcells(nn)%p
+!             end if
+!           end do
+!         end do
+!       end if
+
+    !Allocate the arrays
+    totcloudsystemnr = totcloudsystemnr + 1
+    !print *, "creating output for a total of", num_new_cells, "new cells"
+    do n = 1,num_new_cells
+      !write (*,*) 'Create split cell nr ', n,'/',num_new_cells, 'with',num_points_per_new_cell(n),'elements'
+      newcells(n)%p%n_points = num_points_per_new_cell(n)
+      newcells(n)%p%cloudsystemnr = totcloudsystemnr
+      allocate(newcells(n)%p%loc(3,num_points_per_new_cell(n)))
+      allocate(newcells(n)%p%value(3,num_points_per_new_cell(n)))
+    end do
+
+    allocate(cell_point_index_offset(num_new_cells))
+    cell_point_index_offset(:) = 0
+    do n = 1, num_new_points
+      !if (mod(n,1000000)==0) write (*,*) 'Fill new cells ', n,'/', num_new_points
+
+      nn = new_points(4,n)
+      cell_point_index_offset(nn) = cell_point_index_offset(nn) + 1
+      newcells(nn)%p%loc(:,cell_point_index_offset(nn)) = new_points(1:3,n)
+      newcells(nn)%p%value(ibase,cell_point_index_offset(nn)) = var_base(new_points(1,n),new_points(2,n),new_points(3,n))
+      newcells(nn)%p%value(itop,cell_point_index_offset(nn)) = var_top(new_points(1,n),new_points(2,n),new_points(3,n))
+      newcells(nn)%p%value(ivalue,cell_point_index_offset(nn)) = var_value(new_points(1,n),new_points(2,n),new_points(3,n))
+    end do
+
+
+    !Point at final new cell
+    cell => newcells(num_new_cells)%p
+    do n = 1,num_new_cells
+      ncells = ncells + 1
+      newcells(n)%p%id = ncells
+    end do
+    !Remove the original cell
+    if(oldcell%n_points> 10000000) write (*,*) 'Split cell completed'
+    call deletecell(oldcell)
+
     !print *, "after splitcell"
     !call print_cell_debug(cell)
   end subroutine splitcell
@@ -552,8 +510,6 @@ module modtrack_cell_splitting
     num_passive_points = num_passive_points + 1
     passive_points(1:3,num_passive_points) = (/i,j,t/)
     passive_points(4,num_passive_points)   = num_new_cells
-
-    print *, "add", i, j, t, "to", num_new_cells
 
     !Look west
     ii = i - 1

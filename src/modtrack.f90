@@ -3,7 +3,7 @@ module modtrack
 
   use tracking_common, only: dt, dx, dy
   use tracking_common, only: ibase, itop, ivalue
-  use tracking_common, only: nrel_max, nt, nx, ny
+  use tracking_common, only: nt, nx, ny
   use tracking_common, only: tstart
   use tracking_common, only: createcell, deletecell, firstcell, nextcell
   use tracking_common, only: INSIDE_OBJECTS
@@ -23,6 +23,50 @@ module modtrack
   public nextcell, firstcell
 
   contains
+
+  subroutine findparents(cell, parentarr, base, top)
+    type(celltype), pointer, intent(inout)         :: cell
+    type(cellptr), allocatable,dimension(:,:,:), intent(inout) :: parentarr
+    integer(kind=2), dimension(:,:,:),allocatable, intent(in)             :: base, top
+    integer :: n, nn, i, j, t, iret, count
+    logical :: lnewparent
+
+    count = 0
+    write (*,*) '.. entering findparents'
+    iret = firstcell(cell)
+    do
+      if (iret == -1) exit
+      count = count +1
+      do nn = 1, cell%n_points
+        i = cell%loc(1,nn)
+        j = cell%loc(2,nn)
+        t = cell%loc(3,nn)
+        if (associated(parentarr(i,j,t)%p)) then
+          if (base(i,j,t) <= cell%value(itop,nn) .and. &
+              top(i,j,t)  >= cell%value(ibase,nn) ) then
+            lnewparent = .true.
+            do n = 1, cell%nparents
+              if (cell%parents(n)%p%id == parentarr(i,j,t)%p%id) then
+                lnewparent = .false.
+                exit
+              end if
+            end do
+            if (lnewparent) then
+              cell%nparents = cell%nparents + 1
+              call increase_array(cell%parents, cell%nparents)
+              cell%parents(cell%nparents)%p => parentarr(i,j,t)%p
+
+              parentarr(i,j,t)%p%nchildren = parentarr(i,j,t)%p%nchildren + 1
+              call increase_array(parentarr(i,j,t)%p%children, parentarr(i,j,t)%p%nchildren)
+              parentarr(i,j,t)%p%children(parentarr(i,j,t)%p%nchildren)%p => cell
+            end if
+          end if
+        end if
+      end do
+      iret = nextcell(cell)
+    end do
+    write (*,*) '.. leaving findparents'
+  end subroutine findparents
 
   !> Iterate over all data-points in space and time and construct `celltype`
   !> instances (stored in a linked list through the `next`/`previous` attributes) 
@@ -69,52 +113,6 @@ module modtrack
     deallocate(current_cell_points_loc)
   end subroutine dotracking
 
-  subroutine findparents(cell, parentarr, base, top)
-    type(celltype), pointer, intent(inout)         :: cell
-    type(cellptr), allocatable,dimension(:,:,:), intent(inout) :: parentarr
-    integer(kind=2), dimension(:,:,:),allocatable, intent(in)             :: base, top
-    integer :: n, nn, i, j, t, iret, count
-    logical :: lnewparent
-
-    count = 0
-    write (*,*) '.. entering findparents'
-    iret = firstcell(cell)
-    do
-      if (iret == -1) exit
-      count = count +1
-      do nn = 1, cell%n_points
-        i = cell%loc(1,nn)
-        j = cell%loc(2,nn)
-        t = cell%loc(3,nn)
-        if (associated(parentarr(i,j,t)%p)) then
-          if (base(i,j,t) <= cell%value(itop,nn) .and. &
-              top(i,j,t)  >= cell%value(ibase,nn) ) then
-            lnewparent = .true.
-            do n = 1, cell%nparents
-              if (cell%parents(n)%p%id == parentarr(i,j,t)%p%id) then
-                lnewparent = .false.
-                exit
-              end if
-            end do
-            if (lnewparent) then
-              cell%nparents = cell%nparents + 1
-              nrel_max = max(nrel_max, cell%nparents)
-              call increase_array(cell%parents, cell%nparents)
-              cell%parents(cell%nparents)%p => parentarr(i,j,t)%p
-
-              parentarr(i,j,t)%p%nchildren = parentarr(i,j,t)%p%nchildren + 1
-              nrel_max = max(nrel_max, parentarr(i,j,t)%p%nchildren)
-              call increase_array(parentarr(i,j,t)%p%children, parentarr(i,j,t)%p%nchildren)
-              parentarr(i,j,t)%p%children(parentarr(i,j,t)%p%nchildren)%p => cell
-            end if
-          end if
-        end if
-      end do
-      iret = nextcell(cell)
-    end do
-    write (*,*) '.. leaving findparents'
-
-  end subroutine findparents
 
   !> Copy the information from the temporary array `current_cell_points_loc` into the `cell`
   !> instance's `loc` (location) and `value` attributes.
@@ -130,6 +128,7 @@ module modtrack
   !! @TODO what does `ivalue` mean here?
   subroutine finalizecell(cell, ncells, parentarr, obj_mask, var_base, var_top, var_value, current_cell_points_loc)
     use tracking_common, only: PROCESSED_OBJECT
+    use modtrack_cell_splitting, only: find_split_regions
 
     type(celltype), pointer, intent(inout)                   :: cell
     integer, intent(out)                             :: ncells
@@ -141,26 +140,68 @@ module modtrack
     integer(kind=2), dimension(:,:,:), intent(in) :: var_value
     integer(kind=2), dimension(:,:), intent(in) :: current_cell_points_loc
 
+    !> for storing the points of the new split regions (including points grown into by expand_regions
+    !> below)
+    !> list has shape (4, cell%n_points) and stores (i,j,t,n) where i,j and the
+    !> position indecies, t the time index and n the number of splitters for this
+    !> element of the cell
+    integer, allocatable, dimension(:,:)  :: new_points
+    !> number of points which have been allocated into `new_points`
+    integer :: num_new_points
+    integer, allocatable, dimension(:)    :: num_points_per_new_cell
+
     logical :: cell_was_split
+
+    ! allocate storage for new points, for storing how many points each parent cell will have and
+    ! counter to indicate how much of storage has been used
+    allocate(new_points(4,cell%n_points))
+    allocate(num_points_per_new_cell(cell%n_points/2))
+    num_new_points = 0
+    new_points(:,:) = -1
+    num_points_per_new_cell(:) = -1
 
     cell_was_split = .false.
 
+
     if (present(parentarr)) then
-      call splitcell(cell, ncells, parentarr, obj_mask, var_base, var_top, var_value, &
-                     current_cell_points_loc=current_cell_points_loc)
-    else
+      ! find out how the cells in the parent dataset overlap with the current cell to determine
+      ! whether we will want to split this cell, the subroutine below also returns data about the
+      ! split regions so these can be use when creating the split-off cells
+      call find_split_regions(current_cell_points_loc=current_cell_points_loc, &
+                              cell=cell, parentarr=parentarr, obj_mask=obj_mask, &
+                              points=new_points, num_points=num_new_points, &
+                              num_points_per_new_cell=num_points_per_new_cell  &
+                             )
+      if (cell%nsplitters >= 2) then
+        call splitcell(cell, ncells, obj_mask, var_base, var_top, var_value, &
+                       current_cell_points_loc=current_cell_points_loc, new_points=new_points, &
+                       num_new_points=num_new_points, num_points_per_new_cell=num_points_per_new_cell)
+
+        cell_was_split = .true.
+      elseif (cell%nsplitters == 1) then
+       cell%cloudtype = 1
+      elseif (cell%nsplitters == 0) then
+       cell%cloudtype = 2
+      else
+       print *, "Error: not implemented"
+       call exit(-2)
+      endif
+    end if
+
+    if (.not. cell_was_split) then
       allocate(cell%loc(3,cell%n_points))
       allocate(cell%value(3,cell%n_points))
       cell%loc(:,1:cell%n_points) = current_cell_points_loc(:,1:cell%n_points)
       do n = 1, cell%n_points
         cell%value(ibase, n) = var_base(current_cell_points_loc(1,n), current_cell_points_loc(2,n), current_cell_points_loc(3,n))
         cell%value(itop, n)  = var_top(current_cell_points_loc(1,n), current_cell_points_loc(2,n), current_cell_points_loc(3,n))
-        cell%value(ibase, n) = var_value(current_cell_points_loc(1,n), current_cell_points_loc(2,n), current_cell_points_loc(3,n))
+        cell%value(ivalue, n) = var_value(current_cell_points_loc(1,n), current_cell_points_loc(2,n), current_cell_points_loc(3,n))
         obj_mask(current_cell_points_loc(1,n), current_cell_points_loc(2,n), current_cell_points_loc(3,n)) = PROCESSED_OBJECT
       end do
-    end if
-    ncells = ncells + 1
-    cell%id = ncells
+
+      ncells = ncells + 1
+      cell%id = ncells
+    endif
   end subroutine finalizecell
 
   !> Given the current location (i,j,t) in space and time look at neighbouring
@@ -296,8 +337,6 @@ module modtrack
     do
       if (iret == -1) exit
       if (cell%n_points > n_minparentel) then
-        print *, minval(cell%value(ibase,1:cell%n_points)), minbase(cell%loc(3,1))
-
         if (minval(cell%value(ibase,1:cell%n_points))< minbase(cell%loc(3,1))) then
           do n = 1, cell%n_points
             parentarr(cell%loc(1,n),cell%loc(2,n),cell%loc(3,n))%p => cell
