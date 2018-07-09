@@ -3,7 +3,7 @@ module modstatistics
 
  use tracking_common, only: dt, dx, dy
  use tracking_common, only: nt, nx, ny
- use tracking_common, only: nrel_max, ibase, itop, ivalue
+ use tracking_common, only: ibase, itop, ivalue
  use tracking_common, only: tstart
 
  use modtrack, only: nextcell, firstcell
@@ -11,6 +11,21 @@ module modstatistics
  implicit none
 
  contains
+  subroutine find_max_number_of_relatives(cell, n)
+    use modtrack, only: nextcell, firstcell
+
+    type(celltype), pointer, intent(inout) :: cell
+    integer :: n
+    integer :: iret
+
+    iret = firstcell(cell)
+    do
+      if (iret == -1) exit
+      n = max(n, max(cell%nparents, cell%nchildren))
+      iret = nextcell(cell)
+    end do
+  end subroutine
+
   subroutine dostatistics(cell, ncells, icell, fid, ivar, heightzero, heightrange, maxheight, valzero, valrange, ovarstem)
     use modnetcdf, only: netcdfvar, fillvalue_r, fillvalue_i
     use modnetcdf, only: xnc, ync, tnc
@@ -38,7 +53,10 @@ module modstatistics
     real :: dz = 25, rbase, rtop
     integer, dimension(:,:), allocatable :: relatives
     integer, dimension(:), allocatable   :: id, nrelatives
-real :: time
+    real :: time
+
+    integer :: max_num_relatives = -1
+
     write (*,*) '.. entering statistics'
 
     !Loop over the cells  - fill the cell-length distribution and the xyt slab
@@ -50,6 +68,8 @@ real :: time
     bucket_min = 0
     bucketname = (/'sm','la','hu'/)
     bucketlongname = (/'Small','Large','Huge '/)
+
+    call find_max_number_of_relatives(cell, max_num_relatives)
 
     allocate(nrnc%dim(1))
     allocate(nrnc%dimids(1))
@@ -63,7 +83,7 @@ real :: time
     relnc%name     = trim(ovarstem%name)//'rel'
     relnc%longname = trim(ovarstem%name)// ' relatives'
     relnc%units    = '#'
-    relnc%dim(1)   = nrel_max
+    relnc%dim(1)   = max_num_relatives
     call define_ncdim(fid, relnc, nf90_int)
     call write_ncvar(fid, relnc, (/(i, i=1,relnc%dim(1))/))
 
@@ -357,8 +377,10 @@ real :: time
 
         write (*,*) '..Relationships'
         allocate(nrelatives(bucketsize(n)))
-        allocate(relatives(nrel_max,bucketsize(n)))
+        allocate(relatives(max_num_relatives,bucketsize(n)))
         relatives = fillvalue_i
+
+        print *, "nrel", shape(relatives)
 
 
         nn   = 0

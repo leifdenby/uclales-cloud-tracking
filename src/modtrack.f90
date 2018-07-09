@@ -44,7 +44,7 @@ module modtrack
 
     allocate(current_cell_points_loc(3,ceiling(min(0.3*(huge(1)-2),0.5*real(nx)*real(ny)*real(nt-tstart)))))
     print *, "Allocating array for storing cell locations"
-print *, 'current_cell_points_loc',shape(current_cell_points_loc),0.3*huge(1), 0.5*real(nx)*real(ny)*real(nt-tstart)
+
     nullify(cell)
     do t = tstart, nt
       if(mod(t,10)==0) write (*,'(A,I10,A,I10)') "Time =", t,"  Nr of Cells", ncells
@@ -140,6 +140,10 @@ print *, 'current_cell_points_loc',shape(current_cell_points_loc),0.3*huge(1), 0
     integer(kind=2), dimension(:,:,:), intent(in) :: var_top
     integer(kind=2), dimension(:,:,:), intent(in) :: var_value
     integer(kind=2), dimension(:,:), intent(in) :: current_cell_points_loc
+
+    logical :: cell_was_split
+
+    cell_was_split = .false.
 
     if (present(parentarr)) then
       call splitcell(cell, ncells, parentarr, obj_mask, var_base, var_top, var_value, &

@@ -31,7 +31,7 @@ module constants
   integer, parameter :: n_minparentel = 10  !< number of cells in a "parent" element necessary to make the parent-child connection
 
   ! parameters controlling growth of regions when doing splitting
-  integer, parameter :: n_growth_steps_max = 5
+  integer, parameter :: n_growth_steps_min = 5
 
 
   !!! Derived variables below
@@ -73,7 +73,7 @@ module constants
   public n_minparentel
 
   ! splitting
-  public n_growth_steps_max
+  public n_growth_steps_min
 
   !main
   public rwpthres, lwpthres, corethres, thermthres
