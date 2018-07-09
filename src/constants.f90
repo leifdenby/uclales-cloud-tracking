@@ -66,6 +66,7 @@ module constants
   public corezero, corerange, coremin
   public lwpzero, lwprange, lwpmin
   public rwpzero, rwprange, rwpmin
+  public thermzero, thermrange, thermmin
 
   public i_corethres, i_lwpthres, i_thermthres, i_rwpthres
 
@@ -77,7 +78,6 @@ module constants
 
   !main
   public rwpthres, lwpthres, corethres, thermthres
-  public thermzero, thermrange
 
   public nmincells, nmincells_cloud
 

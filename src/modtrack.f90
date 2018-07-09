@@ -152,6 +152,8 @@ module modtrack
 
     logical :: cell_was_split
 
+    integer :: i, j, tn
+
     ! allocate storage for new points, for storing how many points each parent cell will have and
     ! counter to indicate how much of storage has been used
     allocate(new_points(4,cell%n_points))
@@ -192,11 +194,15 @@ module modtrack
       allocate(cell%loc(3,cell%n_points))
       allocate(cell%value(3,cell%n_points))
       cell%loc(:,1:cell%n_points) = current_cell_points_loc(:,1:cell%n_points)
+
       do n = 1, cell%n_points
-        cell%value(ibase, n) = var_base(current_cell_points_loc(1,n), current_cell_points_loc(2,n), current_cell_points_loc(3,n))
-        cell%value(itop, n)  = var_top(current_cell_points_loc(1,n), current_cell_points_loc(2,n), current_cell_points_loc(3,n))
-        cell%value(ivalue, n) = var_value(current_cell_points_loc(1,n), current_cell_points_loc(2,n), current_cell_points_loc(3,n))
-        obj_mask(current_cell_points_loc(1,n), current_cell_points_loc(2,n), current_cell_points_loc(3,n)) = PROCESSED_OBJECT
+        i = current_cell_points_loc(1,n)
+        j = current_cell_points_loc(2,n)
+        tn = current_cell_points_loc(3,n)
+        cell%value(ibase, n) = var_base(i, j, tn)
+        cell%value(itop, n)  = var_top(i, j, tn)
+        cell%value(ivalue, n) = var_value(i, j, tn)
+        obj_mask(i, j, tn) = PROCESSED_OBJECT
       end do
 
       ncells = ncells + 1
@@ -316,9 +322,9 @@ module modtrack
     use constants, only : n_minparentel
 
     type(celltype), pointer, intent(inout)         :: cell
-    integer(kind=2), allocatable,dimension(:), intent(in)      :: minbase
-    type(cellptr), allocatable, dimension(:,:,:), intent(inout)   :: parentarr
-    integer(kind=2), allocatable,dimension(:,:,:), intent(out), optional  :: base, top
+    integer(kind=2), dimension(:), intent(in)      :: minbase
+    type(cellptr), dimension(:,:,:), intent(inout)   :: parentarr
+    integer(kind=2), dimension(:,:,:), intent(out), optional  :: base, top
 
     integer :: n, i, j, t, iret
     write (*,*) '.. entering fillparentarr'

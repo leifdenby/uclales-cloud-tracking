@@ -87,6 +87,8 @@ program tracking
   if (lthermal) then
     write (*,*) 'Thermals....'
     call read_named_input(var(:,:,:,ithermal), ivar(ithermal))
+    var_ivalue = ithermal
+    print *, ">>", nvar, ithermal
 
     ivar(var_ibase)%name  = 'trcbase'
     ivar(var_itop)%name  = 'trctop'
@@ -156,8 +158,9 @@ program tracking
 
       !       call checkframes
       call dotracking(tracked_cores, ncores,nmincells, obj_mask, var_base, var_top, var(:,:,:,var_ivalue))
-      var_ivalue = 3
     end if
+    ! lwp field is the 3 entry in the data array
+    var_ivalue = 3
 
     ! Track cloud using a critical value of column-integrated liquid as the mask and cloud-top and
     ! cloud-base height as the mask. If cloud-cores have been tracked too the clouds are split by
@@ -332,11 +335,6 @@ program tracking
         call define_ncdim(fid, ync)
         call write_ncvar(fid, ync, y)
         dy = y(2)-y(1)
-        if (lcore) then
-           nvar = 4
-        else
-           nvar = 3
-        end if
         call check(nf90_close(finput))
         write (*,*) nx, ny, nt, tstart,nvar
      end subroutine read_input
@@ -440,6 +438,8 @@ program tracking
         if (ithermal > 0) ivar(ithermal)%name = 'trcpath'
         if (irain    > 0) ivar(irain)%name    = 'rwp'
         ! End parse command line arguments
+
+        print *, "going to use", nvar, "variables"
      end subroutine parse_command_arguments
 
      subroutine summarise_active_fields

@@ -48,7 +48,8 @@ module modstatistics
     integer, allocatable, dimension(:) :: tlength, tdistr
     integer, allocatable, dimension(:) ::  icenter, jcenter, ianchor, janchor, npts
     integer, dimension(nx, ny, tstart:nt) :: slab
-    real, dimension(:,:), allocatable :: base, top, area, vol, val, xcenter, ycenter, maxarea, maxarealoc, recon
+    real, dimension(:,:), allocatable :: base, top, area, vol, val, xcenter, ycenter, maxarea, maxarealoc
+    !real, dimension(:,:), allocatable :: recon
     real, dimension(:), allocatable   :: duration, mintime, maxtime
     real :: dz = 25, rbase, rtop
     integer, dimension(:,:), allocatable :: relatives
@@ -133,7 +134,7 @@ module modstatistics
         maxarea = fillvalue_r
         allocate(maxarealoc(bucket_max(n), bucketsize(n)))
         maxarealoc = fillvalue_r
-        allocate(recon(ceiling(maxheight/dz), bucket_max(n)))
+        !allocate(recon(ceiling(maxheight/dz), bucket_max(n)))
         allocate(vol (bucket_max(n), bucketsize(n)))
         vol  = 0.
         allocate(val (bucket_max(n), bucketsize(n)))
@@ -174,7 +175,7 @@ module modstatistics
             area    (tmax-tmin+2:bucket_max(n), nn) = fillvalue_r
             vol     (tmax-tmin+2:bucket_max(n), nn) = fillvalue_r
             val     (tmax-tmin+2:bucket_max(n), nn) = fillvalue_r
-            recon = 0.
+            !recon = 0.
 !             icenter = 0
 !             jcenter = 0
 !             npts  = 0
@@ -195,7 +196,7 @@ module modstatistics
               top (tt, nn) = max(top (tt, nn), rtop)
               vol (tt, nn) = vol(tt, nn) + rtop-rbase
               area(tt, nn) = area(tt, nn) + 1.
-              recon(floor(rbase/dz)+1:floor(rtop/dz)+1,tt) = recon(floor(rbase/dz)+1:floor(rtop/dz)+1,tt) + 1.
+              !recon(floor(rbase/dz)+1:floor(rtop/dz)+1,tt) = recon(floor(rbase/dz)+1:floor(rtop/dz)+1,tt) + 1.
               val (tt, nn) = val(tt, nn) +  real(cell%value(ivalue,nel))
               !Calculate the center of the cloud
               if (npts(tt) == 0) then
@@ -228,8 +229,8 @@ module modstatistics
               elseif (ycenter(tt,nn) > 0.5*real(ny)*dy) then
                 ycenter(tt,nn) = ycenter(tt,nn) - real(ny)*dy
               end if
-              maxarea(tt,nn) = maxval(recon(:,tt)) *dx*dy
-              maxarealoc(tt,nn) = maxloc(recon(:,tt),1)*dz
+              !maxarea(tt,nn) = maxval(recon(:,tt)) *dx*dy
+              !maxarealoc(tt,nn) = maxloc(recon(:,tt),1)*dz
             end do
           end if
           iret = nextcell(cell)
@@ -369,7 +370,8 @@ module modstatistics
 
         deallocate(ovar%dim, ovar%dimids)
 
-        deallocate(base, top, area, maxarea, maxarealoc, recon, vol, val)
+        deallocate(base, top, area, maxarea, maxarealoc, vol, val)
+        !deallocate(recon)
         deallocate(icenter,jcenter, xcenter, ycenter,ianchor, janchor, npts)
         deallocate(duration, mintime, maxtime, id)
 

@@ -26,6 +26,7 @@ contains
     use constants, only: corezero, corerange, coremin
     use constants, only: lwpzero, lwprange, lwpmin
     use constants, only: rwpzero, rwprange, rwpmin
+    use constants, only: thermzero, thermrange, thermmin
 
     character(len=*), intent(in) :: var_name
 
@@ -43,6 +44,10 @@ contains
       value_offset = rwpzero
       value_scaling = rwprange
       min_value = rwpmin
+    else if (trim(var_name) == "trcpath" .or. trim(var_name) == 'trcbase' .or. trim(var_name) == 'trctop') then
+      value_offset = thermzero
+      value_scaling = thermrange
+      min_value = thermmin
     else if (trim(var_name) == "cldbase" .or. trim(var_name) == "cldtop") then
       value_offset = distzero
       value_scaling = distrange
@@ -64,6 +69,7 @@ contains
     character(len=200) :: filename
     real :: value_offset, value_scaling, min_value
     integer :: k, kkmax, kk, j, i
+    integer, dimension(3) :: start, read_count
 
     if (.not. allocated(readfield)) then
       allocate(readfield(nx, ny, nchunk))
@@ -89,9 +95,11 @@ contains
 
     do k = tstart,nt,nchunk
       kkmax = min(nt-k+1,nchunk)
-      call read_ncvar(finput, nc_var, readfield,(/1,1,k/),(/nx,ny,kkmax/))
+      start = (/1,1,k/)
+      read_count = (/nx,ny,kkmax/)
+      call read_ncvar(finput, nc_var, readfield, start, read_count)
       if (present(nc_var2)) then
-        call read_ncvar(finput2, nc_var2, readfield2,(/1,1,k/),(/nx,ny,kkmax/))
+        call read_ncvar(finput2, nc_var2, readfield2, start, read_count)
         readfield = readfield + readfield2
       endif
 
