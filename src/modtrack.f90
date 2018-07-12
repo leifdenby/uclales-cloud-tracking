@@ -328,6 +328,8 @@ module modtrack
     type(cellptr), dimension(:,:,:), intent(inout)   :: parentarr
     integer(kind=2), dimension(:,:,:), intent(out), optional  :: base, top
 
+    integer :: c = 0
+
     integer :: n, i, j, t, iret
     write (*,*) '.. entering fillparentarr'
     if (present(base)) then
@@ -352,12 +354,13 @@ module modtrack
               base(cell%loc(1,n),cell%loc(2,n),cell%loc(3,n))        =  cell%value(ibase,n)
               top(cell%loc(1,n),cell%loc(2,n),cell%loc(3,n))        =  cell%value(itop,n)
             end if
+            c = c+1
           end do
         end if
       end if
       iret =  nextcell(cell)
     end do
-    write (*,*) '.. leaving fillparentarr'
+    write (*,*) '.. leaving fillparentarr', c
   end subroutine fillparentarr
 
 
