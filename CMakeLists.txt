@@ -26,6 +26,8 @@ endif()
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
 
+#set(CMAKE_Fortran_FLAGS "${CMAKE_CXX_FLAGS_DEBUG} -g -O0 -gen-interfaces -warn interfaces -check -fpe0 -traceback")
+
 target_link_libraries(main ${NETCDF_LIBRARIES_F90})
 
 message(${NETCDF_INCLUDES})
