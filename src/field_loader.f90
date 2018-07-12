@@ -44,11 +44,13 @@ contains
       value_offset = rwpzero
       value_scaling = rwprange
       min_value = rwpmin
-    else if (trim(var_name) == "trcpath" .or. trim(var_name) == 'trcbase' .or. trim(var_name) == 'trctop') then
+      max_value = rwpmax
+    else if (trim(var_name) == "trcpath") then
       value_offset = thermzero
       value_scaling = thermrange
       min_value = thermmin
-    else if (trim(var_name) == "cldbase" .or. trim(var_name) == "cldtop") then
+    else if (trim(var_name) == "cldbase" .or. trim(var_name) == "cldtop" .or. &
+             trim(var_name) == 'trcbase' .or. trim(var_name) == 'trctop') then
       value_offset = distzero
       value_scaling = distrange
       min_value = distmin
