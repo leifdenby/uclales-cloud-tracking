@@ -3,7 +3,7 @@ module modstatistics
 
  use tracking_common, only: dt, dx, dy
  use tracking_common, only: nt, nx, ny
- use tracking_common, only: nrel_max, ibase, itop, ivalue
+ use tracking_common, only: ibase, itop, ivalue
  use tracking_common, only: tstart
 
  use modtrack, only: nextcell, firstcell
@@ -11,16 +11,32 @@ module modstatistics
  implicit none
 
  contains
-  subroutine dostatistics(cell, ncells, icell, fid, ivar, heightzero, heightrange, maxheight, valzero, valrange, ovarstem)
+  subroutine find_max_number_of_relatives(cell, n)
+    use modtrack, only: nextcell, firstcell
+
+    type(celltype), pointer, intent(inout) :: cell
+    integer :: n
+    integer :: iret
+
+    iret = firstcell(cell)
+    do
+      if (iret == -1) exit
+      n = max(n, max(cell%nparents, cell%nchildren))
+      iret = nextcell(cell)
+    end do
+  end subroutine
+
+  subroutine dostatistics(cell, ncells, icell, fid, ivar, heightzero, heightrange, distmax, valzero, valrange, ovarstem)
     use modnetcdf, only: netcdfvar, fillvalue_r, fillvalue_i
     use modnetcdf, only: xnc, ync, tnc
     use modnetcdf, only: define_ncvar, write_ncvar, define_ncdim
     use netcdf, only: nf90_float, nf90_int
+    use constants, only: real_maxval
 
     type(celltype), pointer, intent(inout)    :: cell
     integer, intent(in)               :: ncells
     integer, intent(in)                       :: fid, icell
-    real, intent(in)                          :: heightzero, heightrange, maxheight,valzero, valrange
+    real, intent(in)                          :: heightzero, heightrange, distmax,valzero, valrange
     type(netcdfvar), dimension(:), intent(in) :: ivar
     type(netcdfvar)              , intent(in) :: ovarstem
     type(netcdfvar) :: ovar, nrnc, timenc, relnc
@@ -33,12 +49,16 @@ module modstatistics
     integer, allocatable, dimension(:) :: tlength, tdistr
     integer, allocatable, dimension(:) ::  icenter, jcenter, ianchor, janchor, npts
     integer, dimension(nx, ny, tstart:nt) :: slab
-    real, dimension(:,:), allocatable :: base, top, area, vol, val, xcenter, ycenter, maxarea, maxarealoc, recon
+    real, dimension(:,:), allocatable :: base, top, area, vol, val, xcenter, ycenter, maxarea, maxarealoc
+    !real, dimension(:,:), allocatable :: recon
     real, dimension(:), allocatable   :: duration, mintime, maxtime
     real :: dz = 25, rbase, rtop
     integer, dimension(:,:), allocatable :: relatives
     integer, dimension(:), allocatable   :: id, nrelatives
-real :: time
+    real :: time
+
+    integer :: max_num_relatives = -1
+
     write (*,*) '.. entering statistics'
 
     !Loop over the cells  - fill the cell-length distribution and the xyt slab
@@ -50,6 +70,8 @@ real :: time
     bucket_min = 0
     bucketname = (/'sm','la','hu'/)
     bucketlongname = (/'Small','Large','Huge '/)
+
+    call find_max_number_of_relatives(cell, max_num_relatives)
 
     allocate(nrnc%dim(1))
     allocate(nrnc%dimids(1))
@@ -63,7 +85,7 @@ real :: time
     relnc%name     = trim(ovarstem%name)//'rel'
     relnc%longname = trim(ovarstem%name)// ' relatives'
     relnc%units    = '#'
-    relnc%dim(1)   = nrel_max
+    relnc%dim(1)   = max_num_relatives
     call define_ncdim(fid, relnc, nf90_int)
     call write_ncvar(fid, relnc, (/(i, i=1,relnc%dim(1))/))
 
@@ -73,8 +95,8 @@ real :: time
     do
       if (iret == -1) exit
       n = n + 1
-      tmin = minval(cell%loc(3,1:cell%nelements))
-      tmax = maxval(cell%loc(3,1:cell%nelements))
+      tmin = minval(cell%loc(3,1:cell%n_points))
+      tmax = maxval(cell%loc(3,1:cell%n_points))
       tlength(n) = tmax - tmin + 1
       iret = nextcell(cell)
     end do
@@ -113,7 +135,7 @@ real :: time
         maxarea = fillvalue_r
         allocate(maxarealoc(bucket_max(n), bucketsize(n)))
         maxarealoc = fillvalue_r
-        allocate(recon(ceiling(maxheight/dz), bucket_max(n)))
+        !allocate(recon(ceiling(distmax/dz), bucket_max(n)))
         allocate(vol (bucket_max(n), bucketsize(n)))
         vol  = 0.
         allocate(val (bucket_max(n), bucketsize(n)))
@@ -137,8 +159,8 @@ real :: time
         iret = firstcell(cell)
         do
           if (iret == -1) exit
-          tmin = minval(cell%loc(3,1:cell%nelements))
-          tmax = maxval(cell%loc(3,1:cell%nelements))
+          tmin = minval(cell%loc(3,1:cell%n_points))
+          tmax = maxval(cell%loc(3,1:cell%n_points))
           if (tmax - tmin + 1 >= bucket_min(n) .and. tmax - tmin + 1 <= bucket_max(n)) then
             nn = nn + 1
             if (mod(nn,1000)==0) then
@@ -154,12 +176,12 @@ real :: time
             area    (tmax-tmin+2:bucket_max(n), nn) = fillvalue_r
             vol     (tmax-tmin+2:bucket_max(n), nn) = fillvalue_r
             val     (tmax-tmin+2:bucket_max(n), nn) = fillvalue_r
-            recon = 0.
+            !recon = 0.
 !             icenter = 0
 !             jcenter = 0
 !             npts  = 0
 
-            do nel = 1, cell%nelements
+            do nel = 1, cell%n_points
               i = cell%loc(1,nel)
               j = cell%loc(2,nel)
               t = cell%loc(3,nel)
@@ -169,13 +191,13 @@ real :: time
               else
                 slab(i,j,t) = cell%id
               end if
-              rbase = real(cell%value(ibase,nel)) * heightrange + heightzero
-              rtop  = real(cell%value(itop,nel)) * heightrange + heightzero
+              rbase = real(cell%value(ibase,nel)) * heightrange/real_maxval + heightzero
+              rtop  = real(cell%value(itop,nel)) * heightrange/real_maxval + heightzero
               base(tt, nn) = min(base(tt, nn), rbase)
               top (tt, nn) = max(top (tt, nn), rtop)
               vol (tt, nn) = vol(tt, nn) + rtop-rbase
               area(tt, nn) = area(tt, nn) + 1.
-              recon(floor(rbase/dz)+1:floor(rtop/dz)+1,tt) = recon(floor(rbase/dz)+1:floor(rtop/dz)+1,tt) + 1.
+              !recon(floor(rbase/dz)+1:floor(rtop/dz)+1,tt) = recon(floor(rbase/dz)+1:floor(rtop/dz)+1,tt) + 1.
               val (tt, nn) = val(tt, nn) +  real(cell%value(ivalue,nel))
               !Calculate the center of the cloud
               if (npts(tt) == 0) then
@@ -208,8 +230,8 @@ real :: time
               elseif (ycenter(tt,nn) > 0.5*real(ny)*dy) then
                 ycenter(tt,nn) = ycenter(tt,nn) - real(ny)*dy
               end if
-              maxarea(tt,nn) = maxval(recon(:,tt)) *dx*dy
-              maxarealoc(tt,nn) = maxloc(recon(:,tt),1)*dz
+              !maxarea(tt,nn) = maxval(recon(:,tt)) *dx*dy
+              !maxarealoc(tt,nn) = maxloc(recon(:,tt),1)*dz
             end do
           end if
           iret = nextcell(cell)
@@ -349,7 +371,8 @@ real :: time
 
         deallocate(ovar%dim, ovar%dimids)
 
-        deallocate(base, top, area, maxarea, maxarealoc, recon, vol, val)
+        deallocate(base, top, area, maxarea, maxarealoc, vol, val)
+        !deallocate(recon)
         deallocate(icenter,jcenter, xcenter, ycenter,ianchor, janchor, npts)
         deallocate(duration, mintime, maxtime, id)
 
@@ -357,16 +380,18 @@ real :: time
 
         write (*,*) '..Relationships'
         allocate(nrelatives(bucketsize(n)))
-        allocate(relatives(nrel_max,bucketsize(n)))
+        allocate(relatives(max_num_relatives,bucketsize(n)))
         relatives = fillvalue_i
+
+        print *, "nrel", shape(relatives)
 
 
         nn   = 0
         iret = firstcell(cell)
         do
           if (iret == -1) exit
-          tmin = minval(cell%loc(3,1:cell%nelements))
-          tmax = maxval(cell%loc(3,1:cell%nelements))
+          tmin = minval(cell%loc(3,1:cell%n_points))
+          tmax = maxval(cell%loc(3,1:cell%n_points))
           if (tmax - tmin + 1 >= bucket_min(n) .and. tmax - tmin + 1 <= bucket_max(n)) then
             nn = nn + 1
 !             if (mod(nn,1000)==0) then
@@ -414,8 +439,8 @@ real :: time
         iret = firstcell(cell)
         do
           if (iret == -1) exit
-          tmin = minval(cell%loc(3,1:cell%nelements))
-          tmax = maxval(cell%loc(3,1:cell%nelements))
+          tmin = minval(cell%loc(3,1:cell%n_points))
+          tmax = maxval(cell%loc(3,1:cell%n_points))
           if (tmax - tmin + 1 >= bucket_min(n) .and. tmax - tmin + 1 <= bucket_max(n)) then
             nn = nn + 1
             nrelatives(nn)  = cell%nchildren
@@ -460,8 +485,8 @@ real :: time
 !
           do
             if (iret == -1) exit
-            tmin = minval(cell%loc(3,1:cell%nelements))
-            tmax = maxval(cell%loc(3,1:cell%nelements))
+            tmin = minval(cell%loc(3,1:cell%n_points))
+            tmax = maxval(cell%loc(3,1:cell%n_points))
             if (tmax - tmin + 1 >= bucket_min(n) .and. tmax - tmin + 1 <= bucket_max(n)) then
               nn = nn + 1
               nrelatives(nn)  = cell%cloudtype
@@ -490,8 +515,8 @@ real :: time
           iret = firstcell(cell)
           do
             if (iret == -1) exit
-            tmin = minval(cell%loc(3,1:cell%nelements))
-            tmax = maxval(cell%loc(3,1:cell%nelements))
+            tmin = minval(cell%loc(3,1:cell%n_points))
+            tmax = maxval(cell%loc(3,1:cell%n_points))
             if (tmax - tmin + 1 >= bucket_min(n) .and. tmax - tmin + 1 <= bucket_max(n)) then
               nn = nn + 1
               nrelatives(nn)  = cell%cloudsystemnr
@@ -532,8 +557,8 @@ real :: time
         iret = firstcell(cell)
         do
           if (iret == -1) exit
-          tmin = minval(cell%loc(3,1:cell%nelements))
-          tmax = maxval(cell%loc(3,1:cell%nelements))
+          tmin = minval(cell%loc(3,1:cell%n_points))
+          tmax = maxval(cell%loc(3,1:cell%n_points))
           if (tmax - tmin + 1 >= bucket_min(n) .and. tmax - tmin + 1 <= bucket_max(n)) then
             nn = nn + 1
             nrelatives(nn)  = cell%nsplitters

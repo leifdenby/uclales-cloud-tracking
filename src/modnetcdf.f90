@@ -6,6 +6,7 @@ module modnetcdf
   use netcdf, only: nf90_inquire_variable, nf90_get_att, nf90_redef
   use netcdf, only: nf90_put_att, nf90_strerror, nf90_def_var
   use netcdf, only: nf90_noerr, nf90_enameinuse
+  use netcdf, only: nf90_inq_var_fill
 
   implicit none
   real(kind=4),    parameter :: fillvalue_r = -1e9
@@ -17,6 +18,7 @@ module modnetcdf
      integer       :: id
      integer, dimension(:), allocatable :: dim, dimids
      character(80) :: name,longname,units
+     real :: fillvalue_stored !> fill value used in file which was loaded
   end type netcdfvar
 
   type(netcdfvar) :: xnc, ync, tnc
@@ -45,6 +47,9 @@ contains
   subroutine inquire_ncvar(fid, ncvar)
     type(netcdfvar) :: ncvar
     integer :: fid, n, ndims , iret
+    integer :: used_fillvalue
+    integer :: no_fillvalue
+
     call check ( nf90_inq_varid(fid,trim(ncvar%name),ncvar%id) )
     call check ( nf90_inquire_variable(fid,ncvar%id, ndims=ndims  ))
     if (allocated(ncvar%dim   )) deallocate(ncvar%dim)
@@ -62,6 +67,11 @@ contains
     iret = nf90_get_att(fid, ncvar%id, 'units',ncvar%units)
     if (iret /= nf90_noerr) then
       ncvar%units = ''
+    end if
+
+    iret = nf90_get_att(fid, ncvar%id, '_FillValue', ncvar%fillvalue_stored)
+    if (iret /= nf90_noerr) then
+      ncvar%fillvalue_stored = fillvalue_r
     end if
 
   end subroutine inquire_ncvar
