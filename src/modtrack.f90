@@ -8,6 +8,8 @@ module modtrack
   use tracking_common, only: createcell, deletecell, firstcell, nextcell
   use tracking_common, only: INSIDE_OBJECTS
 
+  use constants, only: z_offset => parent_array_allowed_height_offset
+
   use modtrack_cell_splitting, only: splitcell
 
   use modarray, only: increase_array
@@ -44,8 +46,11 @@ module modtrack
         j = cell%loc(2,nn)
         t = cell%loc(3,nn)
         if (associated(parentarr(i,j,t)%p)) then
-          if (base(i,j,t) <= cell%value(itop,nn) .and. &
-              top(i,j,t)  >= cell%value(ibase,nn) ) then
+          if (& ! parent cell's base must be below top of cell, avoid floating thermals above cloud
+              base(i,j,t) <= cell%value(itop,nn)  .and. &
+              ! top of cell must be above base of cloud, this is the requirement of overlap
+              top(i,j,t) + z_offset*real_maxval/distrange >= cell%value(ibase,nn) &
+                 ) then
             lnewparent = .true.
             do n = 1, cell%nparents
               if (cell%parents(n)%p%id == parentarr(i,j,t)%p%id) then

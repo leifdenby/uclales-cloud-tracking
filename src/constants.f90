@@ -35,6 +35,9 @@ module constants
 
   real, parameter    :: cbstep = 300.
 
+  !> Distance allowed above say thermals to the cloud-base height [m]
+  real, parameter    :: parent_array_allowed_height_offset = 200.
+
 
   !!! Derived variables below
 
@@ -83,5 +86,6 @@ module constants
 
   public cbstep_as_int
   public real_maxval
+  public parent_array_allowed_height_offset
 
 end module constants
