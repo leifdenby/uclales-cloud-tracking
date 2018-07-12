@@ -34,7 +34,7 @@ program tracking
   use constants, only: lwpzero, rwpzero, corezero, thermzero
   use constants, only: lwpthres, rwpthres, corethres, thermthres
   use constants, only: lwprange, rwprange, corerange, thermrange
-  use constants, only: maxheight
+  use constants, only: distmax
 
   use modstatistics, only: dostatistics
 
@@ -218,28 +218,28 @@ program tracking
   if (lthermal) then
     ovar%name     = 'thrm'
     ovar%longname = 'Thermal'
-    call dostatistics(tracked_thermals, nthermals, ithermal, fid, ivar, distzero, distrange, maxheight,thermzero, thermrange, ovar)
+    call dostatistics(tracked_thermals, nthermals, ithermal, fid, ivar, distzero, distrange, distmax,thermzero, thermrange, ovar)
 !     call delete_all(tracked_thermals)
   end if
 
   if (lcore) then
     ovar%name     = 'core'
     ovar%longname = 'Core'
-    call dostatistics(tracked_cores, ncores, icore, fid, ivar, distzero, distrange, maxheight,corezero, corerange, ovar)
+    call dostatistics(tracked_cores, ncores, icore, fid, ivar, distzero, distrange, distmax,corezero, corerange, ovar)
 !     call delete_all(core)
   end if
 
   if (lcloud) then
     ovar%name     = 'cloud'
     ovar%longname = 'Cloud'
-    call dostatistics(tracked_clouds, nclouds, ilwp, fid, ivar, distzero, distrange, maxheight,lwpzero, lwprange, ovar)
+    call dostatistics(tracked_clouds, nclouds, ilwp, fid, ivar, distzero, distrange, distmax,lwpzero, lwprange, ovar)
 !     call delete_all(tracked_clouds)
   end if
 
   if (lrain) then
     ovar%name     = 'rain'
     ovar%longname = 'Rain patch'
-    call dostatistics(tracked_rain, nrains, irain, fid, ivar, distzero, distrange, maxheight, rwpzero, rwprange, ovar)
+    call dostatistics(tracked_rain, nrains, irain, fid, ivar, distzero, distrange, distmax, rwpzero, rwprange, ovar)
 !     call delete_all(tracked_rain)
   end if
   call check ( nf90_close(fid))

@@ -26,16 +26,17 @@ module modstatistics
     end do
   end subroutine
 
-  subroutine dostatistics(cell, ncells, icell, fid, ivar, heightzero, heightrange, maxheight, valzero, valrange, ovarstem)
+  subroutine dostatistics(cell, ncells, icell, fid, ivar, heightzero, heightrange, distmax, valzero, valrange, ovarstem)
     use modnetcdf, only: netcdfvar, fillvalue_r, fillvalue_i
     use modnetcdf, only: xnc, ync, tnc
     use modnetcdf, only: define_ncvar, write_ncvar, define_ncdim
     use netcdf, only: nf90_float, nf90_int
+    use constants, only: real_maxval
 
     type(celltype), pointer, intent(inout)    :: cell
     integer, intent(in)               :: ncells
     integer, intent(in)                       :: fid, icell
-    real, intent(in)                          :: heightzero, heightrange, maxheight,valzero, valrange
+    real, intent(in)                          :: heightzero, heightrange, distmax,valzero, valrange
     type(netcdfvar), dimension(:), intent(in) :: ivar
     type(netcdfvar)              , intent(in) :: ovarstem
     type(netcdfvar) :: ovar, nrnc, timenc, relnc
@@ -134,7 +135,7 @@ module modstatistics
         maxarea = fillvalue_r
         allocate(maxarealoc(bucket_max(n), bucketsize(n)))
         maxarealoc = fillvalue_r
-        !allocate(recon(ceiling(maxheight/dz), bucket_max(n)))
+        !allocate(recon(ceiling(distmax/dz), bucket_max(n)))
         allocate(vol (bucket_max(n), bucketsize(n)))
         vol  = 0.
         allocate(val (bucket_max(n), bucketsize(n)))
@@ -190,8 +191,8 @@ module modstatistics
               else
                 slab(i,j,t) = cell%id
               end if
-              rbase = real(cell%value(ibase,nel)) * heightrange + heightzero
-              rtop  = real(cell%value(itop,nel)) * heightrange + heightzero
+              rbase = real(cell%value(ibase,nel)) * heightrange/real_maxval + heightzero
+              rtop  = real(cell%value(itop,nel)) * heightrange/real_maxval + heightzero
               base(tt, nn) = min(base(tt, nn), rbase)
               top (tt, nn) = max(top (tt, nn), rtop)
               vol (tt, nn) = vol(tt, nn) + rtop-rbase

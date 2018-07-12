@@ -403,7 +403,7 @@ module modtrack_cell_splitting
   !> assign into `obj_mask`
   subroutine findneighbour(from_point, var_base, obj_mask, boundary_points, &
                            num_points_per_new_cell, num_boundary_points)
-    use constants, only: cbstep
+    use constants, only: cbstep_as_int
     use tracking_common, only: tstart, nt, nx, ny
     use tracking_common, only: UNCLASSIFIED_IN_OBJECT
 
@@ -426,7 +426,7 @@ module modtrack_cell_splitting
     !Look west
     ii = i - 1
     if (ii.le.0) ii = nx
-    if (obj_mask(ii,j,t)==UNCLASSIFIED_IN_OBJECT .and. var_base(ii,j,t) < var_base(i,j,t) + cbstep) then
+    if (obj_mask(ii,j,t)==UNCLASSIFIED_IN_OBJECT .and. var_base(ii,j,t) < var_base(i,j,t) + cbstep_as_int) then
       obj_mask(ii,j,t) = from_point(4)
       num_boundary_points = num_boundary_points + 1
       boundary_points(1:3,num_boundary_points) = (/ii,j,t/)
@@ -436,7 +436,7 @@ module modtrack_cell_splitting
     !Look east
     ii = i + 1
     if (ii.gt.nx) ii = 1
-    if (obj_mask(ii,j,t)==UNCLASSIFIED_IN_OBJECT .and. var_base(ii,j,t) < var_base(i,j,t) + cbstep) then
+    if (obj_mask(ii,j,t)==UNCLASSIFIED_IN_OBJECT .and. var_base(ii,j,t) < var_base(i,j,t) + cbstep_as_int) then
       obj_mask(ii,j,t) = from_point(4)
       num_boundary_points = num_boundary_points + 1
       boundary_points(1:3,num_boundary_points) = (/ii,j,t/)
@@ -446,7 +446,7 @@ module modtrack_cell_splitting
     !Look north
     jj = j - 1
     if (jj.le.0) jj = ny
-    if (obj_mask(i,jj,t)==UNCLASSIFIED_IN_OBJECT .and. var_base(i,jj,t) < var_base(i,j,t) + cbstep) then
+    if (obj_mask(i,jj,t)==UNCLASSIFIED_IN_OBJECT .and. var_base(i,jj,t) < var_base(i,j,t) + cbstep_as_int) then
       obj_mask(i,jj,t) = from_point(4)
       num_boundary_points = num_boundary_points + 1
       boundary_points(1:3,num_boundary_points) = (/i,jj,t/)
@@ -456,7 +456,7 @@ module modtrack_cell_splitting
     !Look south
     jj = j + 1
     if (jj.gt.ny) jj = 1
-    if (obj_mask(i,jj,t)==UNCLASSIFIED_IN_OBJECT .and. var_base(i,jj,t) < var_base(i,j,t) + cbstep) then
+    if (obj_mask(i,jj,t)==UNCLASSIFIED_IN_OBJECT .and. var_base(i,jj,t) < var_base(i,j,t) + cbstep_as_int) then
       obj_mask(i,jj,t) = from_point(4)
       num_boundary_points = num_boundary_points + 1
       boundary_points(1:3,num_boundary_points) = (/i,jj,t/)
@@ -466,7 +466,7 @@ module modtrack_cell_splitting
     !Look forward
     tt = t+1
     if (tt <= nt) then
-      if (obj_mask(i,j,tt)==UNCLASSIFIED_IN_OBJECT .and. var_base(i,j,tt) < var_base(i,j,t) + cbstep) then
+      if (obj_mask(i,j,tt)==UNCLASSIFIED_IN_OBJECT .and. var_base(i,j,tt) < var_base(i,j,t) + cbstep_as_int) then
         obj_mask(i,j,tt) = from_point(4)
         num_boundary_points = num_boundary_points + 1
         boundary_points(1:3,num_boundary_points) = (/i,j,tt/)
@@ -477,7 +477,7 @@ module modtrack_cell_splitting
     !Look backward
     tt = t - 1
     if (tt >=tstart) then
-      if (obj_mask(i,j,tt)==UNCLASSIFIED_IN_OBJECT .and. var_base(i,j,tt) < var_base(i,j,t) + cbstep) then
+      if (obj_mask(i,j,tt)==UNCLASSIFIED_IN_OBJECT .and. var_base(i,j,tt) < var_base(i,j,t) + cbstep_as_int) then
         obj_mask(i,j,tt) = from_point(4)
         num_boundary_points = num_boundary_points + 1
         boundary_points(1:3,num_boundary_points) = (/i,j,tt/)

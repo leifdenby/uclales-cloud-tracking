@@ -25,6 +25,8 @@ module modtrack
   contains
 
   subroutine findparents(cell, parentarr, base, top)
+    use constants, only: distrange, real_maxval
+
     type(celltype), pointer, intent(inout)         :: cell
     type(cellptr), allocatable,dimension(:,:,:), intent(inout) :: parentarr
     integer(kind=2), dimension(:,:,:),allocatable, intent(in)             :: base, top
