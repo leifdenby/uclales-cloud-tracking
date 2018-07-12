@@ -96,7 +96,8 @@ program tracking
     call read_named_input(var_top, ivar(var_itop))
 
     allocate(minbasetherm(tstart:nt))
-    minbasetherm = (100.-distzero)/distrange
+    ! XXX: this looks like utter ....
+    !minbasetherm = (100.-distzero)/distrange
 
     obj_mask = OUTSIDE_OBJECTS
     where (var(:,:,:,var_ivalue) > i_thermthres)
@@ -141,13 +142,13 @@ program tracking
         !   z_top_max : rescaled domain-wide maximum cloud-top height
         !   z_base_min_half : half of rescaled domain-wide minimum cloud-base height (where the cloud-base heigth is defined)
         ! (20/06/2018, Leif: it's unclear to me why using z_top_max isn't enough)
-        minbasecloud(n) = (maxval(var_top(:,:,n)) + minval(var_base(:,:,n),var_base(:,:,n)>fillvalue_i16) )/2
+        minbasecloud(n) = (maxval(var_top(:,:,n)) + minval(var_base(:,:,n), var_base(:,:,n) .ne. fillvalue_i16) )/2
 
         if (any(var(:,:,n,3) > i_lwpthres)) then
           ! where
           !       LWP is above threshold
           !   and buoyancy is above threshold
-          !   and cloud-base height is below cloud-top height
+          !   and cloud-base height is below half-way between max and min cloud-extent
           where (var(:,:,n,3) > i_lwpthres &
               .and. var(:,:,n,var_ivalue) > i_corethres &
               .and. var_base(:,:,n) < minbasecloud(n))
@@ -182,6 +183,10 @@ program tracking
         call dotracking(tracked_clouds, nclouds,nmincells_cloud, obj_mask, var_base, var_top, var(:,:,:,var_ivalue))
       end if
       if (lthermal) then
+        ! XXX: fill parents needs a set of limits to decide which cells in "parent" dataset, here thermals, end up being considered
+        ! as connecting with the cloud, this should really be written in a more generic way
+        minbasetherm = minbasecloud
+
         ! NB: `var_base` and `var_top` are overwritten here, we reuse them to save memory
         call fillparentarr(tracked_thermals, minbasetherm, parentarr, var_base, var_top)
         call findparents(tracked_clouds, parentarr, var_base, var_top)
