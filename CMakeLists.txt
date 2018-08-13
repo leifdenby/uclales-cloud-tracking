@@ -3,6 +3,7 @@ project (uclales-cloud-tracking Fortran)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules/")
 
+set (NETCDF_F03 "YES")
 set (NETCDF_F90 "YES")
 set (NETCDF_NC4 "YES")
 FIND_PACKAGE(NetCDF)
@@ -27,7 +28,7 @@ endif()
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -O0")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
 
-target_link_libraries(main ${NETCDF_LIBRARIES_F90})
+target_link_libraries(main ${NETCDF_LIBRARIES})
 
 #add_executable(orig_tracking_time
         #orig_src/tracking_time.f90)
