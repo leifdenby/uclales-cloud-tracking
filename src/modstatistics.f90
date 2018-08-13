@@ -57,7 +57,7 @@ module modstatistics
     integer, dimension(:), allocatable   :: id, nrelatives
     real :: time
 
-    integer :: max_num_relatives = -1
+    integer :: max_num_relatives = 0
 
     write (*,*) '.. entering statistics'
 
