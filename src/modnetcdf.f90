@@ -225,6 +225,10 @@ contains
     end if
     !..open file and read data
     call check ( nf90_redef(fid))
+    if (ncvar%dim(1) == -1) then
+       print *, "Error: attempting to set dimension ", ncvar%dim(1), " of ", trim(ncvar%name)
+       stop 3
+    endif
     iret = nf90_def_dim(fid, trim(ncvar%name), ncvar%dim(1), ncvar%dimids(1))
     if (iret == nf90_enameinuse) then
       call check ( nf90_inq_varid(fid,trim(ncvar%name),ncvar%dimids(1)) )
