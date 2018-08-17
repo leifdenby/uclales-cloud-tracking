@@ -38,10 +38,22 @@ include_directories(${NETCDF_INCLUDES})
 # using pytest for tests for so we add a custom command instead of using
 # cmake's inbuilt test system. pytest looks for the `test/` directory so needs
 # to be working in the source root
-add_custom_target(check COMMAND python -m pytest
-   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-   DEPENDS main
-)
+if(${CMAKE_VERSION} VERSION_LESS "3.2.0")
+  # the python test script will have to try and work out for itself where the
+  # binary is stored
+  add_custom_target(check
+    COMMAND python -m pytest
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    DEPENDS main
+  )
+else()
+  add_custom_target(check
+    -E env "CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR}"
+    COMMAND python -m pytest
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    DEPENDS main
+  )
+endif()
 
 
 #add_executable(orig_tracking_time

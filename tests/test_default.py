@@ -7,12 +7,15 @@ import xarray as xr
 
 @pytest.fixture
 def ds_track(request):
-    bin_path = os.environ['OLDPWD']
+    if "CMAKE_BINARY_DIR" in os.environ:
+        bin_path = os.environ['CMAKE_BINARY_DIR']
+    else:
+        print("cmake didn't supply CMAKE_BINARY_DIR")
+        bin_path = os.environ['OLDPWD']
+
     main_path = os.path.join(bin_path, 'main')
     test_path = os.path.dirname(os.path.abspath(__file__))
     testdata_path = os.path.join(test_path, "testdata")
-
-    print(">>", os.environ['OLDPWD'], os.environ['PWD'])
 
     os.chdir(testdata_path)
 
