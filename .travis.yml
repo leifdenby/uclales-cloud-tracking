@@ -9,6 +9,8 @@ addons:
       - netcdf-bin
       - libnetcdf-dev
 
+install:
+  - pip install xarray
 
 script:
   - nc-config --all
