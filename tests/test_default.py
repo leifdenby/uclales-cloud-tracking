@@ -12,6 +12,8 @@ def ds_track(request):
     test_path = os.path.dirname(os.path.abspath(__file__))
     testdata_path = os.path.join(test_path, "testdata")
 
+    print(">>", os.environ['OLDPWD'], os.environ['PWD'])
+
     os.chdir(testdata_path)
 
     base_name = "testdata"

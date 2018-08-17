@@ -14,8 +14,7 @@ install:
 
 script:
   - nc-config --all
-  - mkdir build/
-  - cmake ..
+  - cmake .
   - ls -R /home/travis/build
   - make main
   - make check
