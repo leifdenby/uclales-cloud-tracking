@@ -33,7 +33,7 @@ if("$ENV{FC}" MATCHES "ifort")
 endif()
 
 target_link_libraries(main ${NETCDF_LIBRARIES})
-include_directories(${SOURCE_DIR} ${NETCDF_INCLUDES})
+include_directories(${NETCDF_INCLUDES})
 
 # using pytest for tests for so we add a custom command instead of using
 # cmake's inbuilt test system. pytest looks for the `test/` directory so needs
