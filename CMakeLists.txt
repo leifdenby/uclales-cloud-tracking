@@ -30,6 +30,15 @@ set(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_Fortran_FLAGS_RELEASE}")
 
 target_link_libraries(main ${NETCDF_LIBRARIES})
 
+# using pytest for tests for so we add a custom command instead of using
+# cmake's inbuilt test system. pytest looks for the `test/` directory so needs
+# to be working in the source root
+add_custom_target(check COMMAND python -m pytest
+   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+   DEPENDS main
+)
+
+
 #add_executable(orig_tracking_time
         #orig_src/tracking_time.f90)
 #target_link_libraries(orig_tracking_time ${NETCDF_LIBRARIES_F90})
