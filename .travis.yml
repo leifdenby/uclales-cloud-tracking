@@ -1,6 +1,14 @@
 language: fortran
 sudo: false
 
+
+addons:
+  apt:
+    packages:
+      - gfortran
+      - netcdf
+
+
 script:
         - cmake .
         - make main
