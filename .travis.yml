@@ -10,6 +10,7 @@ addons:
 
 
 script:
-        - cmake .
-        - make main
-        - make check
+  - nc-config --all
+  - cmake .
+  - make main
+  - make check
