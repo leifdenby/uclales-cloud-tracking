@@ -1,0 +1,20 @@
+language: python
+sudo: false
+
+
+addons:
+  apt:
+    packages:
+      - gfortran
+      - netcdf-bin
+      - libnetcdf-dev
+
+install:
+  - pip install xarray netcdf4
+
+script:
+  - nc-config --all
+  - cmake .
+  - ls -R /home/travis/build
+  - make main
+  - make check
