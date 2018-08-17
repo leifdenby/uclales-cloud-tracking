@@ -6,6 +6,7 @@ addons:
   apt:
     packages:
       - gfortran
+      - netcdf-bin
       - libnetcdf-dev
 
 
