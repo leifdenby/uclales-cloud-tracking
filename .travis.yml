@@ -16,4 +16,5 @@ script:
   - nc-config --all
   - cmake .
   - make main
+  - ls -R /home/travis
   - make check
