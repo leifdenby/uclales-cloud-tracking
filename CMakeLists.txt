@@ -47,10 +47,8 @@ if(${CMAKE_VERSION} VERSION_LESS "3.2.0")
     DEPENDS main
   )
 else()
-  message(STATUS "HELLO CMAKE!!")
   add_custom_target(check
-    -E env "CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR}"
-    COMMAND python -m pytest
+    COMMAND ${CMAKE_COMMAND} -E env "CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR}" python -m pytest
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     DEPENDS main
   )
