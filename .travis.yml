@@ -1,0 +1,7 @@
+language: fortran
+sudo: false
+
+script:
+        - cmake .
+        - make main
+        - make check
