@@ -10,7 +10,7 @@ addons:
       - libnetcdf-dev
 
 install:
-  - pip install xarray
+  - pip install xarray netcdf4
 
 script:
   - nc-config --all
