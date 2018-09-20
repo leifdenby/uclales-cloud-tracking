@@ -2,6 +2,8 @@ module constants
   implicit none
   private
 
+  logical, parameter :: use_runtime_checks = .true.
+
   real, parameter :: real_maxval = real(huge(1_2))
 
   real, parameter :: thermmin = -1.
@@ -87,5 +89,7 @@ module constants
   public cbstep_as_int
   public real_maxval
   public parent_array_allowed_height_offset
+
+  public use_runtime_checks
 
 end module constants

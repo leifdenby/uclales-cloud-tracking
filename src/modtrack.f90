@@ -9,6 +9,7 @@ module modtrack
   use tracking_common, only: INSIDE_OBJECTS
 
   use constants, only: z_offset => parent_array_allowed_height_offset
+  use constants, only: use_runtime_checks
 
   use modtrack_cell_splitting, only: splitcell
 
@@ -78,6 +79,8 @@ module modtrack
   !> Iterate over all data-points in space and time and construct `celltype`
   !> instances (stored in a linked list through the `next`/`previous` attributes) 
   subroutine dotracking(cell, ncells, nmincells, obj_mask, var_base, var_top, var_value, parentarr)
+     use tracking_common, only: count_num_cells
+
     type(celltype), pointer, intent(inout)                   :: cell
     integer, intent(out)                             :: ncells
     integer, intent(in)                                      :: nmincells
@@ -102,7 +105,14 @@ module modtrack
       do  j = 1, ny
         do i = 1, nx
           if (obj_mask(i,j,t)==INSIDE_OBJECTS) then
-             !write (*,*) 'Create a new cell'
+              if (use_runtime_checks) then
+                 if (ncells .ne. count_num_cells(cell)) then
+                    print *, "Error: number of cells has become inconsistent"
+                    print *, ncells, count_num_cells(cell)
+                    call exit(5)
+                 endif
+              endif
+
             call createcell(cell)
             call identify_new_cell(i, j, t, cell, obj_mask, var_base, var_top, current_cell_points_loc=current_cell_points_loc)
             if (cell%n_points >= nmincells) then
