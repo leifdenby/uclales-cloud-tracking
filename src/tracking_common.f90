@@ -116,20 +116,37 @@ module tracking_common
   !! "next" or "previous" element) is re-assigned to the `cell` argument
   subroutine deletecell(cell)
     type(celltype), pointer, intent(inout) :: cell
-    type(celltype), pointer       :: tmp
+    type(celltype), pointer       :: tmp, tmp2
     integer :: ierr
+
+    ierr = 0
+
     tmp => NULL()
     if (associated(cell%previous)) then
       tmp  => cell%previous
       tmp%next=> cell%next
     elseif (associated(cell%next)) then
+      ! if there is no previous element we are deleting the head of the
+      ! linked-list, and so need to update the head of every element to point to
+      ! the new head
       tmp  => cell%next
-      tmp%previous=> cell%previous
+      tmp%previous => null()
+      tmp2 => tmp
+      do
+         if (ierr == -1) then
+            exit
+         else
+            tmp2%head => tmp
+            ierr = nextcell(tmp2)
+         endif
+      end do
     end if
     deallocate(cell%loc, cell%value, cell%splitters, cell%parents, cell%children, stat=ierr)
     deallocate(cell)
     if (associated(tmp)) then
       cell=>tmp
+    else
+      cell => null()
     end if
   end subroutine deletecell
 
