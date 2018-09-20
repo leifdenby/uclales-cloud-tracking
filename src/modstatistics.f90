@@ -91,6 +91,7 @@ module modstatistics
 
     n = 0
     allocate(tlength(ncells))
+    tlength(:) = 0
     iret = firstcell(cell)
     do
       if (iret == -1) exit
