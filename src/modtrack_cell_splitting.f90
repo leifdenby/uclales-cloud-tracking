@@ -86,7 +86,6 @@ module modtrack_cell_splitting
           ! the 4th element of points maps to the index of the cell that is splitting a given point, use this to find the number of
           ! iterations to do for this splitter
           if (iter > maxiter(points(4,n))) then
-             call exit(-1)
              cycle
           endif
           call findneighbour(from_point=points(:,n), var_base=var_base, &
@@ -218,10 +217,10 @@ module modtrack_cell_splitting
     ! active ones
     num_new_cells = oldcell%nsplitters
 
-    !call grow_split_regions(cell=cell, var_base=var_base, &
-                     !obj_mask=obj_mask, points=new_points, num_points=num_new_points, &
-                     !num_points_per_new_cell=num_points_per_new_cell &
-    !)
+    call grow_split_regions(cell=cell, var_base=var_base, &
+                     obj_mask=obj_mask, points=new_points, num_points=num_new_points, &
+                     num_points_per_new_cell=num_points_per_new_cell &
+    )
 
     if (num_new_points < oldcell%n_points) then
       call create_cells_for_points_outside_expanded_regions(&
