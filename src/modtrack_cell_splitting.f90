@@ -137,10 +137,6 @@ module modtrack_cell_splitting
     ! only necessary to allocate for the number of points that haven't been added to "active" cells
     allocate(passive_points(4,oldcell%n_points-num_new_points))
 
-    ! start off with as many cells as there were parent cells splitting the current cell we're
-    ! working on
-    num_new_cells = oldcell%nsplitters
-
     do n = 1, oldcell%n_points
       i = current_cell_points_loc(1,n)
       j = current_cell_points_loc(2,n)
@@ -206,7 +202,8 @@ module modtrack_cell_splitting
 
     type(celltype), pointer :: parent_splitting_cell
 
-    !print *, "before splitcell"
+    num_new_cells = 0
+
     !call print_cell_debug(cell)
     !if(cell%n_points> 10000000) write (*,*) 'Begin Splitcell'
     !write (*,*) 'Split cell with', cell%n_points, 'points in', cell%nsplitters, ' parts'
@@ -318,9 +315,6 @@ module modtrack_cell_splitting
     !Remove the original cell
     if(oldcell%n_points> 10000000) write (*,*) 'Split cell completed'
     call deletecell(oldcell)
-
-    !print *, "after splitcell"
-    !call print_cell_debug(cell)
   end subroutine splitcell
 
 
