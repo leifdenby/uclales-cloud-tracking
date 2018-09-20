@@ -22,8 +22,8 @@ module constants
   real, parameter :: rwpmax   = 10.
   real, parameter :: rwpthres = 0.01
 
-  real, parameter :: distmin = -2000.
-  real, parameter :: distmax = 2000.
+  real, parameter :: distmin = -4000.
+  real, parameter :: distmax = 4000.
 
   integer, parameter :: nchunk = 100 !< number of time-steps to load in each "chunk"
 

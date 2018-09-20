@@ -123,7 +123,7 @@ contains
 
       if (field_max > max_value) then
          print *, "Warning: the maximum value for", trim(nc_var%name), &
-                  field_max, "is smaller than the scaling limit", max_value
+                  field_max, "is larger than the scaling limit", max_value
       endif
 
       print *, "field min", field_min, "max", field_max
