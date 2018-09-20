@@ -59,7 +59,7 @@ module modstatistics
 
     integer :: max_num_relatives = 0
 
-    write (*,*) '.. entering statistics'
+    write (*,*) '.. entering statistics for ', ncells, " ", trim(ovarstem%name), 's'
 
     !Loop over the cells  - fill the cell-length distribution and the xyt slab
     slab(1:nx, 1:ny, tstart:nt) = 0
@@ -101,6 +101,16 @@ module modstatistics
       tlength(n) = tmax - tmin + 1
       iret = nextcell(cell)
     end do
+    if (n < ncells) then
+       print *, "Error: there appear to be fewer cells than `ncells` suggests"
+       print *, n, ncells
+       call exit(1)
+    else if (n > ncells) then
+       print *, "Error: there appear to be more cells than `ncells` suggests"
+       print *, n, ncells
+       call exit(1)
+    endif
+
     allocate(tdistr(maxval(tlength)))
     tdistr = 0
     cummt  = 0
