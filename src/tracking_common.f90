@@ -62,6 +62,8 @@ module tracking_common
 
   public UNCLASSIFIED_IN_OBJECT, OUTSIDE_OBJECTS, INSIDE_OBJECTS, PROCESSED_OBJECT
 
+  public count_num_cells
+
   contains
 
   subroutine print_cell_debug(cell)
@@ -169,4 +171,21 @@ module tracking_common
       firstcell = 0
     end if
   end function firstcell
+
+  integer function count_num_cells(cell) result(num_cells)
+    type(celltype), pointer, intent(in) :: cell
+
+    type(celltype), pointer       :: tmp
+    integer :: iret
+
+    num_cells = 0
+    tmp => cell
+
+    iret = firstcell(tmp)
+    do
+      if (iret == -1) exit
+      iret = nextcell(tmp)
+      num_cells = num_cells + 1
+    end do
+  end function count_num_cells
 end module tracking_common
