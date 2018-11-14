@@ -126,7 +126,8 @@ contains
                   field_max, "is larger than the scaling limit", max_value
       endif
 
-      print *, "field min", field_min, "max", field_max
+      print *, "field min", field_min, "max", field_max, "fillvalue", &
+               nc_var%fillvalue_stored
 
       do kk = 1,kkmax
         do j = 1, ny
