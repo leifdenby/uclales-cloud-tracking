@@ -29,3 +29,14 @@ To make the documentation `Doxygen` will be required, build with
 > cmake -DBUILD_DOC=ON ..
 > make
 ```
+
+## Testing
+
+Tests a written in python including util to generate synthetic input files. All
+tests are in `tests/`. Run the tests with
+
+```bash
+> mkdir build
+> cd build/
+> cmake ..
+> make check
