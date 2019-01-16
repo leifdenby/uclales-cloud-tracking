@@ -3,8 +3,8 @@ module modtrack
 
   use tracking_common, only: dt, dx, dy
   use tracking_common, only: ibase, itop, ivalue
-  use tracking_common, only: nt, nx, ny
-  use tracking_common, only: tstart
+  use tracking_common, only: nx, ny
+  use tracking_common, only: tstart, tend
   use tracking_common, only: createcell, deletecell, firstcell, nextcell
   use tracking_common, only: INSIDE_OBJECTS
 
@@ -96,11 +96,11 @@ module modtrack
     integer :: i, j, t
     write (*,*) '.. entering tracking'
 
-    allocate(current_cell_points_loc(3,ceiling(min(0.3*(huge(1)-2),0.5*real(nx)*real(ny)*real(nt-tstart)))))
+    allocate(current_cell_points_loc(3,ceiling(min(0.3*(huge(1)-2),0.5*real(nx)*real(ny)*real(tend-tstart)))))
     print *, "Allocating array for storing cell locations"
 
     nullify(cell)
-    do t = tstart, nt
+    do t = tstart, tend
       if(mod(t,10)==0) write (*,'(A,I10,A,I10)') "Time =", t,"  Nr of Cells", ncells
       do  j = 1, ny
         do i = 1, nx
@@ -304,7 +304,7 @@ module modtrack
     ii = i
     jj = j
     tt =t + 1
-    if (tt <= nt) then
+    if (tt <= tend) then
       if (obj_mask(ii,jj,tt)==INSIDE_OBJECTS) then
         if (var_base(i,j,t) <= var_top(ii,jj,tt) .and. var_top(i,j,t) >= var_base(ii,jj,tt)) then
           call identify_new_cell(ii,jj,tt,cell, obj_mask, var_base, var_top, current_cell_points_loc=current_cell_points_loc)
@@ -351,7 +351,7 @@ module modtrack
       base = fillvalue_i16
       top  = fillvalue_i16
     end if
-    do t = tstart, nt
+    do t = tstart, tend
       do j = 1, ny
         do i = 1, nx
           nullify (parentarr(i,j,t)%p)
@@ -400,7 +400,7 @@ module modtrack
       !..check for empty frames
     write(0,*) 'Check frames'
     count2 = 0
-    do t = 2, nt
+    do t = 2, tend
       count1 = count(obj_mask(:,:,t)==INSIDE_OBJECTS)
       hlp = float(count1)/float(count2)
       if (count1.eq.0.and.count2.gt.100) then

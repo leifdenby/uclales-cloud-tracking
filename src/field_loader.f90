@@ -1,6 +1,6 @@
 module field_loader
   use modnetcdf, only: netcdfvar, check, inquire_ncvar, read_ncvar
-  use tracking_common, only: tstart, nt, nx, ny
+  use tracking_common, only: tstart, tend, nx, ny
   use tracking_common, only: simulation_id
   use constants, only: nchunk
 
@@ -103,8 +103,8 @@ contains
       endif
     endif
 
-    do k = tstart,nt,nchunk
-      kkmax = min(nt-k+1,nchunk)
+    do k = tstart,tend,nchunk
+      kkmax = min(tend-k,nchunk)
       start = (/1,1,k/)
       read_count = (/nx,ny,kkmax/)
       call read_ncvar(finput, nc_var, readfield, start, read_count)

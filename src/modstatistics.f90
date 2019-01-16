@@ -2,9 +2,9 @@ module modstatistics
  use tracking_common, only: celltype
 
  use tracking_common, only: dt, dx, dy
- use tracking_common, only: nt, nx, ny
+ use tracking_common, only: nx, ny
  use tracking_common, only: ibase, itop, ivalue
- use tracking_common, only: tstart
+ use tracking_common, only: tstart, tend
 
  use modtrack, only: nextcell, firstcell
 
@@ -48,7 +48,7 @@ module modstatistics
     character(80), dimension(nbuckets) :: bucketname, bucketlongname
     integer, allocatable, dimension(:) :: tlength, tdistr
     integer, allocatable, dimension(:) ::  icenter, jcenter, ianchor, janchor, npts
-    integer, dimension(nx, ny, tstart:nt) :: slab
+    integer, dimension(nx, ny, tstart:tend) :: slab
     real, dimension(:,:), allocatable :: base, top, area, vol, val, xcenter, ycenter, maxarea, maxarealoc
     !real, dimension(:,:), allocatable :: recon
     real, dimension(:), allocatable   :: duration, mintime, maxtime
@@ -62,9 +62,9 @@ module modstatistics
     write (*,*) '.. entering statistics for ', ncells, " ", trim(ovarstem%name), 's'
 
     !Loop over the cells  - fill the cell-length distribution and the xyt slab
-    slab(1:nx, 1:ny, tstart:nt) = 0
-    slab(1:nx, 1:ny, tstart:nt) = -1000000000
-    slab(1:nx, 1:ny, tstart:nt) = fillvalue_i
+    slab(1:nx, 1:ny, tstart:tend) = 0
+    slab(1:nx, 1:ny, tstart:tend) = -1000000000
+    slab(1:nx, 1:ny, tstart:tend) = fillvalue_i
     bucketsize = 0
     bucket_max = 0
     bucket_min = 0
