@@ -16,8 +16,8 @@ program tracking
 
   use tracking_common, only: cellptr
   use tracking_common, only: dt, dx, dy
-  use tracking_common, only: nt, nx, ny
-  use tracking_common, only: tstart, simulation_id
+  use tracking_common, only: nx, ny
+  use tracking_common, only: tstart, tend, simulation_id
   use tracking_common, only: INSIDE_OBJECTS, OUTSIDE_OBJECTS
 
   use modtrack, only: dotracking, findparents
@@ -73,14 +73,14 @@ program tracking
 
   print *, "Allocating 3D arrays for storage"
 
-  print *, "var =>", nx, ny, tstart, nt, nvar
-  allocate(var(nx, ny, tstart:nt, nvar))
-  allocate(var_base(nx, ny, tstart:nt))
-  allocate(var_top(nx, ny, tstart:nt))
+  print *, "var =>", nx, ny, tstart, tend, nvar
+  allocate(var(nx, ny, tstart:tend, nvar))
+  allocate(var_base(nx, ny, tstart:tend))
+  allocate(var_top(nx, ny, tstart:tend))
 
-  print *, "parentarr =>", nx, ny, tstart, nt
-  allocate(parentarr(nx, ny, tstart:nt))
-  allocate(obj_mask(nx, ny, tstart:nt))
+  print *, "parentarr =>", nx, ny, tstart, tend
+  allocate(parentarr(nx, ny, tstart:tend))
+  allocate(obj_mask(nx, ny, tstart:tend))
 
   ! Identify and track thermals using Couvreux "radioactive scalar", from which the min-height,
   ! max-height and the column-integrated value of this scalar
@@ -95,7 +95,7 @@ program tracking
     call read_named_input(var_base, ivar(var_ibase))
     call read_named_input(var_top, ivar(var_itop))
 
-    allocate(minbasetherm(tstart:nt))
+    allocate(minbasetherm(tstart:tend))
     ! XXX: this looks like utter ....
     !minbasetherm = (100.-distzero)/distrange
 
@@ -132,10 +132,10 @@ program tracking
       call read_named_input(var(:,:,:,var_ivalue), ivar(icore))
 
       obj_mask = OUTSIDE_OBJECTS
-      allocate(minbasecloud(tstart:nt))
+      allocate(minbasecloud(tstart:tend))
       minbasecloud = 0
 
-      do n=tstart, nt
+      do n=tstart, tend
         ! define minimum cloud-base height as
         !   minbasecloud = z_top_max + z_base_min_half
         ! where
@@ -212,7 +212,7 @@ program tracking
 
     call dotracking(tracked_rain, nrains,nmincells, obj_mask, var_base, var_top, var(:,:,:,var_ivalue))
     if (lcloud) then
-      if (.not. allocated(minbasecloud)) allocate(minbasecloud(tstart:nt))
+      if (.not. allocated(minbasecloud)) allocate(minbasecloud(tstart:tend))
       minbasecloud = huge(1_2)
       ! NB: `var_base` and `var_top` are overwritten here, we reuse them to save memory
       call fillparentarr(tracked_clouds, minbasecloud, parentarr, var_base, var_top)
@@ -311,14 +311,14 @@ program tracking
         call check ( nf90_open (trim(filename), NF90_NOWRITE, finput) )
         tnc%name = 'time'
         call inquire_ncvar(finput, tnc)
-        if (nt > 0) then
-           tnc%dim(1) = nt -tstart + 1
+        if (tend > 0) then
+           tnc%dim(1) = tend -tstart + 1
         else
-           nt = tnc%dim(1)
+           tend = tnc%dim(1)
         end if
-        allocate(t(tstart:nt))
-        print *, nt, "timesteps in file"
-        call read_ncvar(finput, tnc, t,(/tstart/),(/nt-tstart+1/))
+        allocate(t(tstart:tend))
+        print *, tnc%dim(1), "timesteps in file"
+        call read_ncvar(finput, tnc, t,(/tstart/),(/tend-tstart+1/))
         call define_ncdim(fid, tnc)
         call write_ncvar(fid, tnc, t)
         dt = t(tstart+1)-t(tstart)
@@ -341,7 +341,6 @@ program tracking
         call write_ncvar(fid, ync, y)
         dy = y(2)-y(1)
         call check(nf90_close(finput))
-        write (*,*) nx, ny, nt, tstart,nvar
      end subroutine read_input
 
      ! Parse command line arguments
@@ -358,7 +357,7 @@ program tracking
         call get_command_argument(2,ctmp)
         read(ctmp,'(i4)') tstart
         call get_command_argument(3,ctmp)
-        read(ctmp,'(i4)') nt
+        read(ctmp,'(i4)') tend
         call get_command_argument(4,criterion)
 
         nvar = 2

@@ -40,8 +40,8 @@ module tracking_common
 
   integer :: nx = -1
   integer :: ny = -1
-  integer :: nt = -1
   integer :: tstart = -1
+  integer :: tend = -1
   real    :: dx, dy, dt
   logical, parameter :: ldebug = .false., lsiblings = .false.
 
@@ -53,8 +53,8 @@ module tracking_common
   public ibase, itop, ivalue
   public celltype, cellptr
   public dt, dx, dy
-  public nt, nx, ny
-  public tstart
+  public nx, ny
+  public tstart, tend
 
   public createcell, deletecell, firstcell, nextcell
 

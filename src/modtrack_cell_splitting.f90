@@ -397,7 +397,7 @@ module modtrack_cell_splitting
   subroutine findneighbour(from_point, var_base, obj_mask, boundary_points, &
                            num_points_per_new_cell, num_boundary_points)
     use constants, only: cbstep_as_int
-    use tracking_common, only: tstart, nt, nx, ny
+    use tracking_common, only: tstart, tend, nx, ny
     use tracking_common, only: UNCLASSIFIED_IN_OBJECT
 
     integer,         intent(in), dimension(4)      :: from_point
@@ -458,7 +458,7 @@ module modtrack_cell_splitting
     end if
     !Look forward
     tt = t+1
-    if (tt <= nt) then
+    if (tt <= tend) then
       if (obj_mask(i,j,tt)==UNCLASSIFIED_IN_OBJECT .and. var_base(i,j,tt) < var_base(i,j,t) + cbstep_as_int) then
         obj_mask(i,j,tt) = from_point(4)
         num_boundary_points = num_boundary_points + 1
@@ -483,7 +483,7 @@ module modtrack_cell_splitting
   recursive subroutine newpassive(i, j, t, &
       obj_mask, passive_points, num_passive_points, num_new_cells)
 
-    use tracking_common, only: tstart, nt, nx, ny
+    use tracking_common, only: tstart, tend, nx, ny
     use tracking_common, only: UNCLASSIFIED_IN_OBJECT, PROCESSED_OBJECT
 
     integer(kind=2), intent(in) :: i, j, t
@@ -551,7 +551,7 @@ module modtrack_cell_splitting
     ii = i
     jj = j
     tt = t + 1
-    if (tt <=nt) then
+    if (tt <= tend) then
       if (obj_mask(ii,jj,tt)==UNCLASSIFIED_IN_OBJECT) then
        call newpassive(i=ii, j=jj, t=tt, &
                        num_passive_points=num_passive_points, obj_mask=obj_mask, &
