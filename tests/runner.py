@@ -14,20 +14,26 @@ def run_tracking(data_path, base_name, tn_start, tn_end, tracking_type):
 
     main_path = os.path.join(bin_path, 'main')
 
-    os.chdir(data_path)
+    old_cwd = os.getcwd()
+    try:
+        os.chdir(data_path)
 
-    base_name = "testdata"
-    arg_str = "{} {} {} {} {}".format(
-        main_path, base_name, tn_start, tn_end, tracking_type
-    )
-    p = subprocess.Popen(arg_str.split(" "), stderr=subprocess.PIPE,
-                         stdout=subprocess.PIPE)
+        base_name = "testdata"
+        arg_str = "{} {} {} {} {}".format(
+            main_path, base_name, tn_start, tn_end, tracking_type
+        )
+        p = subprocess.Popen(arg_str.split(" "), stderr=subprocess.PIPE,
+                             stdout=subprocess.PIPE)
 
-    stdout, stderr = p.communicate()
+        stdout, stderr = p.communicate()
 
-    if p.returncode != 0:
-        raise Exception(stdout, stderr)
+        if p.returncode != 0:
+            raise Exception(stdout, stderr)
 
-    fn_out = os.path.join(data_path, '{}.out.xy.track.nc'.format(base_name))
+        fn_out = os.path.join(data_path, '{}.out.xy.track.nc'.format(base_name))
 
-    return xr.open_dataset(fn_out, decode_times=False)
+        return xr.open_dataset(fn_out, decode_times=False)
+    except:
+        raise
+    finally:
+        os.chdir(old_cwd)

@@ -36,6 +36,52 @@ def test_single_consecutive_clouds():
             assert ds_track.smcloudid.max() == n_clouds
             ds_track.close()
 
+def test_two_merging_clouds():
+    """
+    The tracking code merges two clouds into one if their cores overlap at some
+    point in their lifetime
+    """
+    background = BackgroundState()
+
+    t0 = 300.
+    clouds_list = [
+        FakeCloudState(background=background, v=(1., 1.)),
+        FakeCloudState(background=background, p0=(1000., 1000.)),
+    ]
+
+    fake_sim = FakeSimulation(clouds_list=clouds_list, background=background)
+
+    with fake_sim.output() as (path, ds_input):
+        ds_track = run_tracking(data_path=path, base_name='testdata',
+                                tn_start=1, tn_end=len(ds_input.time),
+                                tracking_type='cloud,core')
+
+        assert ds_track.smcloudid.max() == 1
+        ds_track.close()
+
+def test_two_splitting_clouds():
+    """
+    The tracking code will treat to clouds that split apart as one if their
+    cores overlap at some point in their lifetime
+    """
+    background = BackgroundState()
+
+    t0 = 300.
+    clouds_list = [
+        FakeCloudState(background=background, r_min=300, v=(1., 1.)),
+        FakeCloudState(background=background, r_min=300, p0=(1000., 1000.)),
+    ]
+
+    fake_sim = FakeSimulation(clouds_list=clouds_list, background=background)
+
+    with fake_sim.output() as (path, ds_input):
+        ds_track = run_tracking(data_path=path, base_name='testdata',
+                                tn_start=1, tn_end=len(ds_input.time),
+                                tracking_type='cloud,core')
+
+        assert ds_track.smcloudid.max() == 1
+        ds_track.close()
+
 
 # def test_one(ds_track):
 

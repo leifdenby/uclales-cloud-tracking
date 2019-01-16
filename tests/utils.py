@@ -109,8 +109,8 @@ class FakeCloudState(StateBaseClass):
     def _get_offset_grid(self, t):
         xx, yy = np.meshgrid(self.x, self.y,)
         
-        x_c = self.p0[0] - self.v[0]*(t-self.t0)    
-        y_c = self.p0[1] - self.v[1]*(t-self.t0)
+        x_c = self.p0[0] + self.v[0]*(t-self.t0)    
+        y_c = self.p0[1] + self.v[1]*(t-self.t0)
         
         xx -= x_c
         yy -= y_c
