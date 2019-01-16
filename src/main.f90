@@ -361,6 +361,12 @@ program tracking
         read(ctmp,'(i4)') nt
         call get_command_argument(4,criterion)
 
+        if (tstart .ne. 1) then
+           print *, tstart
+           print *, "There's currently a bug when tnstart is not 1, please run with tnstart=1"
+           call exit(1)
+        endif
+
         nvar = 2
         vlength = len_trim(criterion)
         lb = 1
