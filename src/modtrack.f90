@@ -197,9 +197,11 @@ module modtrack
                        num_new_points=num_new_points, num_points_per_new_cell=num_points_per_new_cell)
 
         cell_was_split = .true.
-      elseif (cell%nsplitters == 1) then
-       cell%cloudtype = 1
       elseif (cell%nsplitters == 0) then
+       ! "passive" clouds have no buoyant cores
+       cell%cloudtype = 1
+      elseif (cell%nsplitters == 1) then
+       ! "single core" clouds have exactly one buoyant core
        cell%cloudtype = 2
       else
        print *, "Error: not implemented"
