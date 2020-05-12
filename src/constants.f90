@@ -10,9 +10,9 @@ module constants
   real, parameter :: thermmax = 10000.
   real, parameter :: thermthres = 100.
 
-  real, parameter :: lwpmin   = -1.
-  real, parameter :: lwpmax   = 10.
-  real, parameter :: lwpthres = 0.01
+  real, parameter :: lwpmin   = -1.  !> min liquid water path value (in [kg/m^2]) used for scaling
+  real, parameter :: lwpmax   = 10.  !> max liquid water path value (in [kg/m^2]) used for scaling
+  real, parameter :: lwpthres = 0.01  !> liquid water path threshold (in [kg/m^2]) used for identifying clouds
 
   real, parameter :: coremin  = -5.
   real, parameter :: coremax  = 5.
