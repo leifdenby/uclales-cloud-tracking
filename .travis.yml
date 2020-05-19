@@ -30,8 +30,8 @@ install:
 
 script:
   - nc-config --all
-  - export FC=$(nc-config --fc)
-  - cmake .
+  - env
+  - FC=$(nc-config --fc) cmake .
   - ls -R /home/travis/build
   - make main
   - make check
