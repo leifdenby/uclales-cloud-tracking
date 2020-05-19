@@ -29,10 +29,16 @@ before_install:
   - python .conda/create_env.py
 
 install:
+  - echo "export FOO=bar" > test.sh
+  - echo $FOO
+  - source test.sh
+  - echo $FOO
+
   - conda activate uclales-cloud-tracking
   - nc-config --all
+  - export FC=$(nc-config --fc)
   - env
-  - FC=`nc-config --fc` cmake .
+  - cmake .
   - ls -R /home/travis/build
   - make main
 
