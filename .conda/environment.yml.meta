@@ -1,0 +1,9 @@
+name: uclales-cloud-tracking
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - gfortran_osx-64 [platform startswith darwin]
+  - gfortran_linux-64 [platform startswith linux-64]
+  - netcdf-fortran
+  - xarray

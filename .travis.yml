@@ -1,16 +1,32 @@
+# setup based on travis conda instructions on
+# https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/use-conda-with-travis-ci.html
+
 language: python
-sudo: false
-
-
-addons:
-  apt:
-    packages:
-      - gfortran
-      - netcdf-bin
-      - libnetcdf-dev
-
+python:
+  # We don't actually use the Travis Python, but this keeps it organized.
+  - "2.7"
+  - "3.5"
+  - "3.6"
 install:
-  - pip install xarray netcdf4
+  - sudo apt-get update
+  # We do this conditionally because it saves us some downloading if the
+  # version is the same.
+  - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
+      wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh;
+    else
+      wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
+    fi
+  - bash miniconda.sh -b -p $HOME/miniconda
+  - source "$HOME/miniconda/etc/profile.d/conda.sh"
+  - hash -r
+  - conda config --set always_yes yes --set changeps1 no
+  - conda update -q conda
+  # Useful for debugging any issues with conda
+  - conda info -a
+
+  # using create_env so we can different env files for macos and linux
+  - python .conda/create_env.py
+  - conda activate uclales-cloud-tracking
 
 script:
   - nc-config --all

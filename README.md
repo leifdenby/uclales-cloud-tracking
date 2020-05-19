@@ -10,7 +10,8 @@ Heus.
 
 ## Installation
 
-To compile `netcdf4` is required (e.g. load with `module load netcdf4`)
+To compile `netcdf4` is required (e.g. load with `module load netcdf4` or
+install dependencies with conda `python .conda/environment.yml.meta`)
 
 Build with cmake, e.g.
 
