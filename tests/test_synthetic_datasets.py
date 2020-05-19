@@ -3,7 +3,6 @@ import pytest
 from utils import BackgroundState, FakeCloudState, FakeSimulation
 from runner import run_tracking
 
-import os
 
 def test_single_consecutive_clouds():
     background = BackgroundState()
@@ -26,7 +25,8 @@ def test_single_consecutive_clouds():
         assert ds_track.smcloudid.max() == n_clouds
         ds_track.close()
 
-        # test bug hasn't been fixed (https://github.com/leifdenby/uclales-cloud-tracking/issues/4)
+        # test bug hasn't been fixed
+        # (https://github.com/leifdenby/uclales-cloud-tracking/issues/4)
         with pytest.raises(Exception):
             # ensure we can track not starting from the first timestep
             ds_track = run_tracking(data_path=path, base_name='testdata',
@@ -36,6 +36,7 @@ def test_single_consecutive_clouds():
             assert ds_track.smcloudid.max() == n_clouds
             ds_track.close()
 
+
 def test_two_merging_clouds():
     """
     The tracking code merges two clouds into one if their cores overlap at some
@@ -43,7 +44,6 @@ def test_two_merging_clouds():
     """
     background = BackgroundState()
 
-    t0 = 300.
     clouds_list = [
         FakeCloudState(background=background, v=(1., 1.)),
         FakeCloudState(background=background, p0=(1000., 1000.)),
@@ -59,6 +59,7 @@ def test_two_merging_clouds():
         assert ds_track.smcloudid.max() == 1
         ds_track.close()
 
+
 def test_two_splitting_clouds():
     """
     The tracking code will treat to clouds that split apart as one if their
@@ -66,7 +67,6 @@ def test_two_splitting_clouds():
     """
     background = BackgroundState()
 
-    t0 = 300.
     clouds_list = [
         FakeCloudState(background=background, r_min=300, v=(1., 1.)),
         FakeCloudState(background=background, r_min=300, p0=(1000., 1000.)),
@@ -83,32 +83,45 @@ def test_two_splitting_clouds():
         ds_track.close()
 
 
-# def test_one(ds_track):
+def _fast_moving_cloud_test(direction):
+    """
+    To test correction for Galilean transform (or wind in simulation) make some
+    clouds that will move far enough to not have spatial overlap between
+    timesteps
+    """
+    dt = 120.
+    r_cloud = 300.
 
-def foobar():
-    v0 = (1., 1.)
+    if direction == 'x':
+        v0 = (2*r_cloud/dt, 0.0)
+    elif direction == 'y':
+        v0 = (0.0, 2*r_cloud/dt)
+    else:
+        raise NotImplementedError(direction)
+
+    background = BackgroundState()
 
     clouds_list = [
-       FakeCloudState(background=background, t0=400, v=v0),
-       FakeCloudState(background=background, p0=(500., 0.), v=v0),
-       FakeCloudState(background=background, p0=(-500., 500.), v=v0), 
-       FakeCloudState(background=background, t0=400., p0=(1000., 1000.), v=v0),    
-       FakeCloudState(background=background, t0=800., p0=(1000., 1000.), v=v0),    
-
+       FakeCloudState(background=background, p0=(500., 0.), v=v0,
+                      r_max=r_cloud, r_min=r_cloud,
+                      ),
     ]
 
     fake_sim = FakeSimulation(clouds_list=clouds_list, background=background)
 
-    fake_sim(t=2400.).lwp.plot()
-#clouds(800.).z_top.plot()
-#clouds_list[0](x_, y_, 100).core.plot()
+    with fake_sim.output(dt_sim=dt) as (path, ds_input):
+        ds_track = run_tracking(data_path=path, base_name='testdata',
+                                tn_start=1, tn_end=len(ds_input.time),
+                                tracking_type='cloud,core')
+
+        print(path)
+        assert ds_track.smcloudid.max() == 1
+        ds_track.close()
 
 
-# In[431]:
+def test_fast_moving_cloud_x():
+    _fast_moving_cloud_test(direction='x')
 
 
-
-
-# In[432]:
-
-
+def test_fast_moving_cloud_y():
+    _fast_moving_cloud_test(direction='y')

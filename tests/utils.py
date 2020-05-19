@@ -203,15 +203,18 @@ class FakeSimulation:
 
         return ds.rename(dict(x='xt', y='yt', z_top='cldtop', z_base='cldbase'))
 
-    def output(self, dt_sim=2*60):
-        return SyntheticDatasetGenerator(sim=self, dt_sim=dt_sim)
+    def output(self, dt_sim=2*60, keep_data=False):
+        return SyntheticDatasetGenerator(sim=self, dt_sim=dt_sim,
+                                         keep_data=keep_data)
 
 
 class SyntheticDatasetGenerator:
     BASE_NAME = 'testdata'
-    def __init__(self, sim, dt_sim):
+
+    def __init__(self, sim, dt_sim, keep_data=False):
         self.sim = sim
         self.dt_sim = dt_sim
+        self.keep_data = keep_data
 
     def __enter__(self):
         ds_input = self.sim.generate_output(dt=self.dt_sim)
@@ -228,7 +231,8 @@ class SyntheticDatasetGenerator:
         return path, ds_input
 
     def __exit__(self, *args, **kwargs):
-        shutil.rmtree(self.path)
+        if not self.keep_data:
+            shutil.rmtree(self.path)
 
 
 if __name__ == "__main__":
