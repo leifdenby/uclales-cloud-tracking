@@ -26,9 +26,9 @@ install:
 
   # using create_env so we can different env files for macos and linux
   - python .conda/create_env.py
-  - conda activate uclales-cloud-tracking
 
 script:
+  - conda activate uclales-cloud-tracking
   - nc-config --all
   - env
   - FC=$(nc-config --fc) cmake .
