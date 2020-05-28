@@ -5,7 +5,8 @@ import pytest
 import xarray as xr
 
 
-def run_tracking(data_path, base_name, tn_start, tn_end, tracking_type):
+def run_tracking(data_path, base_name, tn_start, tn_end, tracking_type,
+                 U_offset=None):
     if "CMAKE_BINARY_DIR" in os.environ:
         bin_path = os.environ['CMAKE_BINARY_DIR']
     else:
@@ -22,6 +23,9 @@ def run_tracking(data_path, base_name, tn_start, tn_end, tracking_type):
         arg_str = "{} {} {} {} {}".format(
             main_path, base_name, tn_start, tn_end, tracking_type
         )
+        if U_offset is not None:
+            arg_str += " {} {}".format(*U_offset)
+
         p = subprocess.Popen(arg_str.split(" "), stderr=subprocess.PIPE,
                              stdout=subprocess.PIPE)
 

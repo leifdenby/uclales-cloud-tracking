@@ -1,8 +1,9 @@
 module field_loader
   use modnetcdf, only: netcdfvar, check, inquire_ncvar, read_ncvar
-  use tracking_common, only: tstart, nt, nx, ny
+  use tracking_common, only: tstart, nt, nx, ny, dt
   use tracking_common, only: simulation_id
   use constants, only: nchunk
+  use offset_fields, only: offset_field
 
   use netcdf, only: nf90_open, nf90_nowrite, nf90_close
 
@@ -112,6 +113,10 @@ contains
         call read_ncvar(finput2, nc_var2, readfield2, start, read_count)
         readfield = readfield + readfield2
       endif
+
+      do kk = 1,kkmax
+         readfield(:,:,kk) = offset_field(input_field=readfield(:,:,kk), time=kk*dt)
+      end do
 
       field_min = minval(readfield, readfield .ne. nc_var%fillvalue_stored)
       field_max = maxval(readfield, readfield .ne. nc_var%fillvalue_stored)

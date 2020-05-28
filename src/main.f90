@@ -5,6 +5,8 @@ program tracking
   use modnetcdf, only: read_ncvar, inquire_ncvar, define_ncdim, write_ncvar
   use modnetcdf, only: tnc, xnc, ync
 
+  use offset_fields, only: u_vel_offset, v_vel_offset
+
   use netcdf, only: nf90_close, nf90_global, nf90_nowrite
   use netcdf, only: nf90_hdf5
   use netcdf, only: nf90_put_att, nf90_create, nf90_enddef, nf90_open
@@ -58,10 +60,12 @@ program tracking
   integer :: var_ivalue  ! indicates which field of `var` we are currently using
 
   if (command_argument_count() == 0) then
-     print *, "./tracking [filename-base] [starting timestep] [final timestep] [analysis variables]"
+     print *, "./tracking <filename-base> <starting timestep> <final timestep> <analysis variables> [u_vel v_vel]"
      print *, ""
      print *, "analysis variables: `core`, `cloud`, `liquid`??, `thermal`, `rain` and `all`"
      print *, "analysis variables defines which fields will be analysed"
+     print *
+     print *, "u_vel and v_vel may be provided to correct for translation velocity when tracking"
      call exit(-1)
   endif
 
@@ -352,6 +356,7 @@ program tracking
      subroutine parse_command_arguments()
         character(100) :: criterion, ctmp
         integer :: ub, lb, vlength
+        integer :: arg_read_status
 
         call get_command_argument(1,simulation_id)
         simulation_id = trim(simulation_id)//'.out.xy.'
@@ -360,6 +365,19 @@ program tracking
         call get_command_argument(3,ctmp)
         read(ctmp,'(i4)') nt
         call get_command_argument(4,criterion)
+
+        ! attempt to parse transform velocity as fifth and sixth arguments
+        call get_command_argument(5, ctmp, status=arg_read_status)
+        if (arg_read_status == 0) then
+           read(ctmp, *) u_vel_offset
+           call get_command_argument(6, ctmp, status=arg_read_status)
+           if (arg_read_status == 0) then
+              read(ctmp, *) v_vel_offset
+           else
+              print *, "x- and y-velocity needed for offsetting"
+              call exit(2)
+           endif
+        endif
 
         if (tstart .ne. 1) then
            print *, tstart

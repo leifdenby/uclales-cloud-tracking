@@ -112,9 +112,9 @@ def _fast_moving_cloud_test(direction):
     with fake_sim.output(dt_sim=dt) as (path, ds_input):
         ds_track = run_tracking(data_path=path, base_name='testdata',
                                 tn_start=1, tn_end=len(ds_input.time),
-                                tracking_type='cloud,core')
+                                tracking_type='cloud,core',
+                                U_offset=v0)
 
-        print(path)
         assert ds_track.smcloudid.max() == 1
         ds_track.close()
 
