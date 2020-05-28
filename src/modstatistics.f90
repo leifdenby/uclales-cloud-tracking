@@ -132,7 +132,8 @@ module modstatistics
       bucketsize(n) = bucketsize(n) - sum(bucketsize(1:n-1))
     end do
     bucketsize = max(bucketsize,0)
-!Accumulate the individual cell statistics
+
+    ! Accumulate the individual cell statistics over time
     do n = 1, nbuckets
       write (*,*) 'Process bucket', n
       if (bucketsize(n) > 0) then
@@ -182,15 +183,15 @@ module modstatistics
             mintime(nn)  = dt * tmin
             maxtime(nn)  = dt * tmax
 
-            base    (tmax-tmin+2:bucket_max(n), nn) = fillvalue_r
-            top     (tmax-tmin+2:bucket_max(n), nn) = fillvalue_r
-            area    (tmax-tmin+2:bucket_max(n), nn) = fillvalue_r
-            vol     (tmax-tmin+2:bucket_max(n), nn) = fillvalue_r
-            val     (tmax-tmin+2:bucket_max(n), nn) = fillvalue_r
-            !recon = 0.
-!             icenter = 0
-!             jcenter = 0
-!             npts  = 0
+
+            ! For every point (in space and time) that belongs to a given object
+            ! ("cell") store into relevant variables per-time what the values
+            ! are
+            base(:, nn) = fillvalue_r
+            top (:, nn) = fillvalue_r
+            area(:, nn) = fillvalue_r
+            vol (:, nn) = fillvalue_r
+            val (:, nn) = fillvalue_r
 
             do nel = 1, cell%n_points
               i = cell%loc(1,nel)
@@ -210,7 +211,10 @@ module modstatistics
               area(tt, nn) = area(tt, nn) + 1.
               !recon(floor(rbase/dz)+1:floor(rtop/dz)+1,tt) = recon(floor(rbase/dz)+1:floor(rtop/dz)+1,tt) + 1.
               val (tt, nn) = val(tt, nn) +  real(cell%value(ivalue,nel))
-              !Calculate the center of the cloud
+
+              ! Calculate the x- and y-index (ij) center of the object, using
+              ! the first point of appearance as anchor to wrap-around
+              ! coordinates (OBS: wrap only does one domain-length wrap currently)
               if (npts(tt) == 0) then
                 ianchor(tt) = i
                 janchor(tt) = j
@@ -227,6 +231,9 @@ module modstatistics
                 jcenter(tt) = jcenter(tt) - sign(ny,jdev)
               end if
             end do
+
+            ! Having accumulated variables by time we now aggregate each
+            ! timestep
             do tt = 1, tmax-tmin+1
               xcenter(tt,nn) = (real(ianchor(tt))+real(icenter(tt))/real(npts(tt)) - 0.5*(nx-1))*dx
               if (xcenter(tt,nn) < -0.5*real(nx)*dx) then
