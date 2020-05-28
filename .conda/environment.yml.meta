@@ -7,3 +7,7 @@ dependencies:
   - gfortran_linux-64 [platform startswith linux]
   - netcdf-fortran
   - xarray
+  - pip
+  - pip:
+    - netCDF4
+    - scipy
