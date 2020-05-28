@@ -36,4 +36,5 @@ install:
   - make main
 
 script:
+  - pip install pytest
   - make check
