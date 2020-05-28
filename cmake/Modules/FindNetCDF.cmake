@@ -96,7 +96,10 @@ if(NETCDF_NC4)
         set(NETCDF_HAS_f90 "NO")
       else()
         message(STATUS "Found NetCDF4 with f90 bindings")
-        set (NETCDF_LIBRARIES "${NETCDF_LIBRARIES_F90}" CACHE STRING "All NetCDF libraries required for interface level")
+        # some versions of nc-config don't add the `-lnetcdff` library to the
+        # the string returned by `nc-config --flibs` so we need to add it
+        # manually here...
+        set (NETCDF_LIBRARIES "${NETCDF_LIBRARIES_F90} -lnetcdff" CACHE STRING "All NetCDF libraries required for interface level")
         set (NETCDF_INCLUDES "${NETCDF_INCLUDES_F90}" CACHE STRING "All NetCDF libraries required for interface level")
       endif()
     endif()
@@ -115,7 +118,10 @@ if(NETCDF_NC4)
         set(NETCDF_HAS_f03 "NO")
       else()
         message(STATUS "Found NetCDF4 with f03 bindings")
-        set (NETCDF_LIBRARIES "${NETCDF_LIBRARIES_F03}" CACHE STRING "All NetCDF libraries required for interface level")
+        # some versions of nc-config don't add the `-lnetcdff` library to the
+        # the string returned by `nc-config --flibs` so we need to add it
+        # manually here...
+        set (NETCDF_LIBRARIES "${NETCDF_LIBRARIES_F03} -lnetcdff" CACHE STRING "All NetCDF libraries required for interface level")
         set (NETCDF_INCLUDES "${NETCDF_INCLUDES_F03}" CACHE STRING "All NetCDF libraries required for interface level")
       endif()
     endif()
