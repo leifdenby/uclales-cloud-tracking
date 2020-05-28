@@ -37,4 +37,5 @@ install:
 
 script:
   - pip install pytest
+  - ulimit -s unlimited
   - make check
