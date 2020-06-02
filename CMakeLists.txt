@@ -11,6 +11,7 @@ FIND_PACKAGE(NetCDF)
 add_executable(main
         src/constants.f90
         src/modnetcdf.f90
+        src/modoffset_fields.f90
         src/constants.f90
         src/tracking_common.f90
         src/modarray.f90
