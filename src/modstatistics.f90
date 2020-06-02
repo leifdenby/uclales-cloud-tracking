@@ -6,6 +6,8 @@ module modstatistics
  use tracking_common, only: ibase, itop, ivalue
  use tracking_common, only: tstart
 
+ use offset_fields, only: calc_index_offset, offset_field, u_vel_offset, v_vel_offset
+
  use modtrack, only: nextcell, firstcell
 
  implicit none
@@ -32,6 +34,10 @@ module modstatistics
     use modnetcdf, only: define_ncvar, write_ncvar, define_ncdim
     use netcdf, only: nf90_float, nf90_int
     use constants, only: real_maxval
+
+ use netcdf
+         INCLUDE 'netcdf.inc'
+    integer :: status
 
     type(celltype), pointer, intent(inout)    :: cell
     integer, intent(in)               :: ncells
@@ -192,6 +198,8 @@ module modstatistics
             area(:, nn) = fillvalue_r
             vol (:, nn) = fillvalue_r
             val (:, nn) = fillvalue_r
+            icenter(:) = fillvalue_i
+            jcenter(:) = fillvalue_i
 
             do nel = 1, cell%n_points
               i = cell%loc(1,nel)
@@ -234,7 +242,17 @@ module modstatistics
 
             ! Having accumulated variables by time we now aggregate each
             ! timestep
+
             do tt = 1, tmax-tmin+1
+              ! offset the index positions again if an offset has been applied
+              ! so that we get positions in the original frame of reference
+              !if (u_vel_offset .ne. 0.0) then
+                !icenter(tt) = icenter(tt) + calc_index_offset(time=dt*tt, offset_dim=1, remove_offset=.true.)
+              !endif
+              !if (v_vel_offset .ne. 0.0) then
+                !jcenter(tt) = jcenter(tt) + calc_index_offset(time=dt*tt, offset_dim=2, remove_offset=.true.)
+              !endif
+
               xcenter(tt,nn) = (real(ianchor(tt))+real(icenter(tt))/real(npts(tt)) - 0.5*(nx-1))*dx
               if (xcenter(tt,nn) < -0.5*real(nx)*dx) then
                 xcenter(tt,nn) = xcenter(tt,nn)+real(nx)*dx
@@ -568,6 +586,7 @@ module modstatistics
 !             deallocate(ovar%dim, ovar%dimids)
 !           end if
 !         end if
+
         !Write to netcdf file: Nr splitters
         nrelatives = 0
         relatives = fillvalue_i
@@ -618,6 +637,12 @@ module modstatistics
       end if
     end do
 
+    ! before we write the xyt "slabs" we need to offset back to remove the wind
+    ! offset again
+    do tt = tstart, nt
+      slab(:,:,tt) = offset_field(slab(:,:,tt), time=tt*dt, remove_offset=.true.)
+    end do
+
     !write slab
     write (*,*) '..Write slab'
     allocate(ovar%dim(3))
@@ -632,5 +657,11 @@ module modstatistics
     call define_ncvar(fid, ovar, nf90_int)
     call write_ncvar(fid, ovar, slab)
     write (*,*) '.. leaving statistics'
+
+
+    status = nf90_redef(fid)
+    status = nf90_put_att(fid, NF90_GLOBAL, "u_offset", u_vel_offset)
+    status = nf90_put_att(fid, NF90_GLOBAL, "v_offset", v_vel_offset)
+    status = nf90_enddef(fid)
   end subroutine dostatistics
 end module modstatistics

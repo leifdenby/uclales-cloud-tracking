@@ -4,8 +4,6 @@
 language: python
 python:
   # We don't actually use the Travis Python, but this keeps it organized.
-  - "2.7"
-  - "3.5"
   - "3.6"
 
 before_install:
@@ -27,6 +25,10 @@ before_install:
 
   # using create_env so we can different env files for macos and linux
   - python .conda/create_env.py
+
+  # check code formatting with black
+  - pip install black
+  - black --check tests/
 
 install:
   - conda activate uclales-cloud-tracking
