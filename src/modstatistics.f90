@@ -662,6 +662,10 @@ module modstatistics
     status = nf90_redef(fid)
     status = nf90_put_att(fid, NF90_GLOBAL, "u_offset", u_vel_offset)
     status = nf90_put_att(fid, NF90_GLOBAL, "v_offset", v_vel_offset)
+    status = nf90_put_att(fid, NF90_GLOBAL, "tracking sourcecode", "https://github.com/leifdenby/uclales-cloud-tracking")
+#ifdef GIT_COMMIT_HASH
+    status = nf90_put_att(fid, NF90_GLOBAL, "git commit", GIT_COMMIT_HASH)
+#endif
     status = nf90_enddef(fid)
   end subroutine dostatistics
 end module modstatistics

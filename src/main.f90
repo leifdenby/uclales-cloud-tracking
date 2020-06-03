@@ -66,6 +66,10 @@ program tracking
      print *, "analysis variables defines which fields will be analysed"
      print *
      print *, "u_vel and v_vel may be provided to correct for translation velocity when tracking"
+#ifdef GIT_COMMIT_HASH
+     print *
+     print *, "git commit:", GIT_COMMIT_HASH
+#endif
      call exit(-1)
   endif
 
