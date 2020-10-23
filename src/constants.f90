@@ -6,9 +6,9 @@ module constants
 
   real, parameter :: real_maxval = real(huge(1_2))
 
-  real, parameter :: thermmin = -1.
-  real, parameter :: thermmax = 10000.
-  real, parameter :: thermthres = 100.
+  real, parameter :: trcpath_min = -1.
+  real, parameter :: trcpath_max = 10000.
+  real, parameter :: trcpath_thres = 100.
 
   real, parameter :: lwpmin   = -1.  !> min liquid water path value (in [kg/m^2]) used for scaling
   real, parameter :: lwpmax   = 10.  !> max liquid water path value (in [kg/m^2]) used for scaling
@@ -44,8 +44,8 @@ module constants
   !!! Derived variables below
 
   ! center and range values for parameters
-  real, parameter :: thermzero  = 0.5*(thermmax + thermmin)
-  real, parameter :: thermrange = (thermmax - thermmin)
+  real, parameter :: thermzero  = 0.5*(trcpath_max + trcpath_min)
+  real, parameter :: thermrange = (trcpath_max - trcpath_min)
 
   real, parameter :: lwpzero  = 0.5*(lwpmax + lwpmin)
   real, parameter :: lwprange = (lwpmax - lwpmin)
@@ -61,7 +61,7 @@ module constants
 
   integer(kind=2), parameter :: i_lwpthres   = (lwpthres - lwpzero)/lwprange*real_maxval
   integer(kind=2), parameter :: i_corethres  = (corethres - corezero)/corerange*real_maxval
-  integer(kind=2), parameter :: i_thermthres = (thermthres - thermzero)/thermrange*real_maxval
+  integer(kind=2), parameter :: i_trcpath_thres = (trcpath_thres - thermzero)/thermrange*real_maxval
   integer(kind=2), parameter :: i_rwpthres   = (rwpthres - rwpzero)/rwprange*real_maxval
 
   integer(kind=2), parameter :: cbstep_as_int = cbstep/distrange*real_maxval
@@ -71,9 +71,9 @@ module constants
   public corezero, corerange, coremin, coremax
   public lwpzero, lwprange, lwpmin, lwpmax
   public rwpzero, rwprange, rwpmin, rwpmax
-  public thermzero, thermrange, thermmin, thermmax
+  public thermzero, thermrange, trcpath_min, trcpath_max
 
-  public i_corethres, i_lwpthres, i_thermthres, i_rwpthres
+  public i_corethres, i_lwpthres, i_trcpath_thres, i_rwpthres
 
   ! tracking
   public n_minparentel
@@ -82,7 +82,7 @@ module constants
   public n_growth_steps_min
 
   !main
-  public rwpthres, lwpthres, corethres, thermthres
+  public rwpthres, lwpthres, corethres, trcpath_thres
 
   public nmincells, nmincells_cloud
 

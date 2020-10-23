@@ -27,7 +27,7 @@ contains
     use constants, only: corezero, corerange, coremin, coremax
     use constants, only: lwpzero, lwprange, lwpmin, lwpmax
     use constants, only: rwpzero, rwprange, rwpmin, rwpmax
-    use constants, only: thermzero, thermrange, thermmin, thermmax
+    use constants, only: thermzero, thermrange, trcpath_min, trcpath_max
 
     character(len=*), intent(in) :: var_name
 
@@ -51,8 +51,8 @@ contains
     else if (trim(var_name) == "trcpath") then
       value_offset = thermzero
       value_scaling = thermrange
-      min_value = thermmin
-      max_value = thermmax
+      min_value = trcpath_min
+      max_value = trcpath_max
     else if (trim(var_name) == "cldbase" .or. trim(var_name) == "cldtop" .or. &
              trim(var_name) == 'trcbase' .or. trim(var_name) == 'trctop') then
       value_offset = distzero

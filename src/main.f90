@@ -31,10 +31,10 @@ program tracking
 
   use constants, only: nchunk
   use constants, only: nmincells, nmincells_cloud
-  use constants, only: i_corethres, i_lwpthres, i_thermthres, i_rwpthres
+  use constants, only: i_corethres, i_lwpthres, i_trcpath_thres, i_rwpthres
   use constants, only: distrange, distzero
   use constants, only: lwpzero, rwpzero, corezero, thermzero
-  use constants, only: lwpthres, rwpthres, corethres, thermthres
+  use constants, only: lwpthres, rwpthres, corethres, trcpath_thres
   use constants, only: lwprange, rwprange, corerange, thermrange
   use constants, only: distmax
 
@@ -108,7 +108,7 @@ program tracking
     !minbasetherm = (100.-distzero)/distrange
 
     obj_mask = OUTSIDE_OBJECTS
-    where (var(:,:,:,var_ivalue) > i_thermthres)
+    where (var(:,:,:,var_ivalue) > i_trcpath_thres)
       obj_mask = INSIDE_OBJECTS
     end where
     call dotracking(tracked_thermals, nthermals,nmincells, obj_mask, var_base, var_top, var(:,:,:,var_ivalue))
@@ -290,7 +290,7 @@ program tracking
 
         call check ( nf90_create(path=trim(simulation_id)//'track.nc', cmode=NF90_HDF5, ncid=fid))
         if (lthermal) then
-           call check ( nf90_put_att(fid, nf90_global, 'Thermal threshold',thermthres))
+           call check ( nf90_put_att(fid, nf90_global, 'Thermal threshold',trcpath_thres))
            call check ( nf90_put_att(fid, nf90_global, 'Thermal Min size',nmincells))
         end if
         if (lcloud) then
