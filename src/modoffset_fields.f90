@@ -76,9 +76,9 @@ module offset_fields
       d = 0
 
       if (present(remove_offset) .and. remove_offset) then
-        d = -1
-      else
         d = 1
+      else
+        d = -1
       endif
 
       if (offset_dim == 1) then

@@ -115,7 +115,7 @@ contains
       endif
 
       do kk = 1,kkmax
-         readfield(:,:,kk) = offset_field(input_field=readfield(:,:,kk), time=kk*dt)
+         readfield(:,:,kk) = offset_field(input_field=readfield(:,:,kk), time=(k+kk-1)*dt)
       end do
 
       field_min = minval(readfield, readfield .ne. nc_var%fillvalue_stored)
