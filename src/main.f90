@@ -313,6 +313,7 @@ program tracking
         character(100) :: filename
         real, allocatable, dimension(:) :: x, y, t
         integer :: finput
+        character(30) :: new_units
 
         filename = trim(simulation_id)//trim(ivar(nvar)%name)//'.nc'
         write(*,*) 'Reading dimensions, filename=', filename
@@ -329,6 +330,18 @@ program tracking
         call read_ncvar(finput, tnc, t,(/tstart/),(/nt-tstart+1/))
         call define_ncdim(fid, tnc)
         call write_ncvar(fid, tnc, t)
+
+        if (tnc%units(1:7) == "seconds") then
+           ! do nothing, we want the units in seconds
+        else if (tnc%units(1:3) == "day") then
+           new_units = "seconds since 2000-01-01 00:00:00"
+           t = t*24.0*60.0*60.0
+           print *, "Warning: time units are given as `", trim(tnc%units), "`, changing to `", trim(new_units), "`"
+           tnc%units = new_units
+        else
+           print *, "Doesn't recognise units for time variable: ", tnc%units
+           call exit(-1)
+        endif
         dt = t(tstart+1)-t(tstart)
 
         xnc%name = 'xt'
